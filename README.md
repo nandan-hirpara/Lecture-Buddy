@@ -12,6 +12,16 @@ Upload a lecture video, then ask:
 - List important formulas
 - Find where a concept was introduced (temporal grounding)
 
+## Quick start (frontend shell)
+
+```bash
+cd src/frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 — upload a video and try study actions. Replies are **mocked** until the inference service is wired.
+
 ## Project layout
 
 ```
@@ -21,7 +31,8 @@ LectureBuddy/
 ├── notes/
 │   ├── summary.md      # algorithm + component inventory
 │   └── checklist.md    # implement one task at a time (easy → hard)
-├── src/                # frontend + inference service (built task-by-task)
+├── src/
+│   └── frontend/       # React + Vite UI (Task 3 done)
 ├── data/               # sample videos / session artifacts
 └── README.md
 ```
@@ -46,7 +57,9 @@ Full inventory: `notes/summary.md`.
 
 ## Status
 
-Scaffold + paper notes only. Next task TBD (recommended: React frontend shell).
+- [x] Scaffold + paper notes
+- [x] React frontend shell with mock study actions
+- [ ] VideoChat3 inference API (next)
 
 ## References
 
