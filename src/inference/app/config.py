@@ -22,11 +22,13 @@ class Settings:
     mock: bool = _env_bool("LECTUREBUDDY_MOCK", False)
     # auto | 4bit | 8bit  — 4bit recommended on ~6GB GPUs
     load_mode: str = os.getenv("LECTUREBUDDY_LOAD_MODE", "auto").strip().lower()
-    max_new_tokens: int = int(os.getenv("LECTUREBUDDY_MAX_NEW_TOKENS", "512"))
-    # Soft cap for qwen_vl_utils video sampling (frames / pixels)
-    video_fps: float = float(os.getenv("LECTUREBUDDY_VIDEO_FPS", "1.0"))
-    max_frames: int = int(os.getenv("LECTUREBUDDY_MAX_FRAMES", "64"))
-    max_pixels: int = int(os.getenv("LECTUREBUDDY_MAX_PIXELS", str(360 * 420)))
+    max_new_tokens: int = int(os.getenv("LECTUREBUDDY_MAX_NEW_TOKENS", "256"))
+    # Soft cap for qwen_vl_utils video sampling (frames / pixels).
+    # Defaults are conservative for ~6GB GPUs; raise if you have more VRAM.
+    # max_pixels must be >= qwen video min (~100352 at patch 14).
+    video_fps: float = float(os.getenv("LECTUREBUDDY_VIDEO_FPS", "0.5"))
+    max_frames: int = int(os.getenv("LECTUREBUDDY_MAX_FRAMES", "8"))
+    max_pixels: int = int(os.getenv("LECTUREBUDDY_MAX_PIXELS", "100352"))
     upload_dir: Path = Path(
         os.getenv(
             "LECTUREBUDDY_UPLOAD_DIR",

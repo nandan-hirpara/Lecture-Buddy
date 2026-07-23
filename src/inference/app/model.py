@@ -375,6 +375,8 @@ class VideoChat3Engine:
         from qwen_vl_utils import process_vision_info
 
         tokens = max_new_tokens or settings.max_new_tokens
+        # qwen_vl_utils rejects max_pixels < video min_pixels (~100352 at patch 14).
+        max_pixels = max(settings.max_pixels, 100_352)
         messages = [
             {
                 "role": "user",
@@ -384,7 +386,7 @@ class VideoChat3Engine:
                         "video": str(path.resolve()),
                         "fps": settings.video_fps,
                         "max_frames": settings.max_frames,
-                        "max_pixels": settings.max_pixels,
+                        "max_pixels": max_pixels,
                     },
                     {"type": "text", "text": question.strip()},
                 ],
@@ -431,11 +433,27 @@ class VideoChat3Engine:
         if self._input_dtype is not None:
             inputs = inputs.to(self._input_dtype)
 
-        generated_ids = self._model.generate(
-            **inputs,
-            max_new_tokens=tokens,
-            do_sample=False,
-        )
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        try:
+            generated_ids = self._model.generate(
+                **inputs,
+                max_new_tokens=tokens,
+                do_sample=False,
+            )
+        except torch.cuda.OutOfMemoryError as exc:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            raise RuntimeError(
+                "GPU out of memory while encoding this video. "
+                "Restart the API with fewer frames, e.g. "
+                "LECTUREBUDDY_MAX_FRAMES=4 LECTUREBUDDY_VIDEO_FPS=0.25 "
+                "(keep LECTUREBUDDY_MAX_PIXELS >= 100352)."
+            ) from exc
+
         trimmed = [
             output_ids[len(input_ids) :]
             for input_ids, output_ids in zip(inputs.input_ids, generated_ids)
