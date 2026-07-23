@@ -28,7 +28,10 @@ class Settings:
     max_frames: int = int(os.getenv("LECTUREBUDDY_MAX_FRAMES", "64"))
     max_pixels: int = int(os.getenv("LECTUREBUDDY_MAX_PIXELS", str(360 * 420)))
     upload_dir: Path = Path(
-        os.getenv("LECTUREBUDDY_UPLOAD_DIR", str(Path(__file__).resolve().parents[2] / "data" / "uploads"))
+        os.getenv(
+            "LECTUREBUDDY_UPLOAD_DIR",
+            str(Path(__file__).resolve().parents[3] / "data" / "uploads"),
+        )
     )
     preload: bool = _env_bool("LECTUREBUDDY_PRELOAD", True)
 

@@ -1,15 +1,25 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { TASKS, mockReply, delay } from './mock/responses.js'
+import { askVideo, fetchHealth } from './api.js'
+import { TASKS, mockReply } from './mock/responses.js'
 import './App.css'
 
 function formatTime(date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+function describeApi(health) {
+  if (!health) return { label: 'API offline', ready: false }
+  if (health.error) return { label: `API error`, ready: false }
+  if (!health.ready) return { label: 'API loading…', ready: false }
+  if (health.mock) return { label: 'API mock', ready: true }
+  return { label: 'VideoChat3 live', ready: true }
+}
+
 export default function App() {
   const fileInputId = useId()
   const chatEndRef = useRef(null)
   const videoRef = useRef(null)
+  const abortRef = useRef(null)
 
   const [videoFile, setVideoFile] = useState(null)
   const [videoUrl, setVideoUrl] = useState(null)
@@ -17,16 +27,42 @@ export default function App() {
     {
       id: 'welcome',
       role: 'assistant',
-      text: 'Upload a lecture video, then use a study action or ask a question. Responses are mocked until VideoChat3 is connected.',
+      text: 'Upload a lecture video, then use a study action or ask a question. The UI talks to the inference API at :8000 when it is available.',
       at: new Date(),
     },
   ])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  const [apiHealth, setApiHealth] = useState(null)
+
+  const api = describeApi(apiHealth)
+
+  useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+
+    async function refresh() {
+      try {
+        const health = await fetchHealth({ signal: controller.signal })
+        if (!cancelled) setApiHealth(health)
+      } catch {
+        if (!cancelled) setApiHealth(null)
+      }
+    }
+
+    void refresh()
+    const id = setInterval(refresh, 8000)
+    return () => {
+      cancelled = true
+      controller.abort()
+      clearInterval(id)
+    }
+  }, [])
 
   useEffect(() => {
     return () => {
       if (videoUrl) URL.revokeObjectURL(videoUrl)
+      abortRef.current?.abort()
     }
   }, [videoUrl])
 
@@ -45,7 +81,11 @@ export default function App() {
       {
         id: `sys-${Date.now()}`,
         role: 'system',
-        text: `Loaded “${file.name}”. Study actions are ready (mock).`,
+        text: `Loaded "${file.name}". ${
+          api.ready
+            ? 'Questions will go to the inference API.'
+            : 'API offline — answers will use local mock until the server is up.'
+        }`,
         at: new Date(),
       },
     ])
@@ -58,15 +98,41 @@ export default function App() {
     if (videoRef.current) videoRef.current.removeAttribute('src')
   }
 
+  async function resolveReply(userText, taskId) {
+    if (!videoFile) {
+      return mockReply(taskId, null, userText)
+    }
+
+    if (!api.ready) {
+      return (
+        mockReply(taskId, videoFile.name, userText) +
+        '\n\n_(API offline — mock fallback. Start src/inference uvicorn on :8000.)_'
+      )
+    }
+
+    const controller = new AbortController()
+    abortRef.current = controller
+    // Long videos on a 6GB GPU can take several minutes.
+    const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000)
+    try {
+      const result = await askVideo(videoFile, userText, { signal: controller.signal })
+      const badge = result.mock ? ' [api-mock]' : ''
+      return `${result.answer}${badge}`
+    } finally {
+      clearTimeout(timeout)
+      if (abortRef.current === controller) abortRef.current = null
+    }
+  }
+
   async function pushExchange(userText, taskId = 'chat') {
     if (busy) return
-    if (!videoFile && taskId !== 'chat') {
+    if (!videoFile) {
       setMessages((prev) => [
         ...prev,
         {
           id: `need-${Date.now()}`,
           role: 'assistant',
-          text: 'Add a lecture video first, then run a study action.',
+          text: 'Add a lecture video first, then ask or run a study action.',
           at: new Date(),
         },
       ])
@@ -81,18 +147,35 @@ export default function App() {
     }
     setMessages((prev) => [...prev, userMsg])
     setBusy(true)
-    await delay()
-    const reply = mockReply(taskId, videoFile?.name, userText)
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `a-${Date.now()}`,
-        role: 'assistant',
-        text: reply,
-        at: new Date(),
-      },
-    ])
-    setBusy(false)
+
+    try {
+      const reply = await resolveReply(userText, taskId)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          text: reply,
+          at: new Date(),
+        },
+      ])
+    } catch (err) {
+      const message =
+        err?.name === 'AbortError'
+          ? 'Request timed out or was cancelled. Try a shorter clip or fewer frames.'
+          : err?.message || 'Inference failed.'
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          text: `Could not reach VideoChat3: ${message}`,
+          at: new Date(),
+        },
+      ])
+    } finally {
+      setBusy(false)
+    }
   }
 
   function onTask(task) {
@@ -116,10 +199,16 @@ export default function App() {
           <p className="brand">LectureBuddy</p>
           <p className="tagline">Your companion for lecture videos</p>
         </div>
-        <p className="status-pill">
-          {videoFile ? videoFile.name : 'No video yet'}
-          <span className="dot" data-ready={Boolean(videoFile)} />
-        </p>
+        <div className="status-row">
+          <p className="status-pill" title={apiHealth?.model_id || 'Inference API'}>
+            {api.label}
+            <span className="dot" data-ready={api.ready} />
+          </p>
+          <p className="status-pill">
+            {videoFile ? videoFile.name : 'No video yet'}
+            <span className="dot" data-ready={Boolean(videoFile)} />
+          </p>
+        </div>
       </header>
 
       <main className="workspace">
@@ -140,7 +229,7 @@ export default function App() {
           ) : (
             <label className="dropzone" htmlFor={fileInputId}>
               <span className="dropzone-title">Drop a lecture here</span>
-              <span className="dropzone-hint">MP4, WebM, or MOV · mock mode</span>
+              <span className="dropzone-hint">MP4, WebM, or MOV · sent to VideoChat3 on ask</span>
               <span className="dropzone-cta">Choose file</span>
             </label>
           )}
@@ -186,7 +275,7 @@ export default function App() {
             ))}
             {busy ? (
               <p className="thinking" aria-busy="true">
-                Thinking…
+                {api.ready ? 'Asking VideoChat3…' : 'Thinking…'}
               </p>
             ) : null}
             <div ref={chatEndRef} />

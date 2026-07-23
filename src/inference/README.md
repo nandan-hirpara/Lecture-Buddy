@@ -14,11 +14,16 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-On an RTX 3060 Laptop (6GB), also install 4-bit support:
+On an RTX 3060 Laptop (6GB), make sure PyTorch sees CUDA, then install 4-bit support:
 
-```bash
+```powershell
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+# If cuda is False, reinstall GPU wheels:
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 pip install bitsandbytes
 ```
+
+> The HF load report line `lm_head.weight | MISSING` is usually harmless — the head is tied to the input embeddings.
 
 ## Run (mock — no GPU / no weight download)
 

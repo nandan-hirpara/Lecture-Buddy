@@ -24,6 +24,8 @@ npm run dev
 
 Open http://localhost:5173
 
+With the inference API running on `:8000`, the UI polls `/health` and sends uploaded videos to `POST /v1/ask`. If the API is down, study actions fall back to local mock replies.
+
 ### Inference API (VideoChat3-4B)
 
 ```powershell
@@ -93,7 +95,8 @@ Full inventory: `notes/summary.md`.
 - [x] Scaffold + paper notes
 - [x] React frontend shell with mock study actions
 - [x] VideoChat3 inference API (`src/inference`)
-- [ ] Wire React ↔ inference API (next)
+- [x] Wire React ↔ inference API
+- [ ] Richer lecture study prompts (next)
 
 ## References
 

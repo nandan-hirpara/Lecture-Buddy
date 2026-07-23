@@ -68,6 +68,13 @@
   text-overflow: ellipsis;
 }
 
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
 .dot {
   width: 0.55rem;
   height: 0.55rem;
@@ -375,6 +382,11 @@
   .top {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .status-row {
+    justify-content: flex-start;
+    width: 100%;
   }
 
   .status-pill {
