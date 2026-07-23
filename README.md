@@ -12,6 +12,50 @@ Upload a lecture video, then ask:
 - List important formulas
 - Find where a concept was introduced (temporal grounding)
 
+## Quick start
+
+### Frontend (React)
+
+```bash
+cd src/frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173
+
+With the inference API running on `:8000`, the UI polls `/health` and sends uploaded videos to `POST /v1/ask`. If the API is down, study actions fall back to local mock replies.
+
+### Inference API (VideoChat3-4B)
+
+```powershell
+cd src/inference
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# Dry-run (no weight download)
+$env:LECTUREBUDDY_MOCK="1"
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Real model (your machine has an RTX 3060 6GB — use 4-bit):
+
+```powershell
+pip install bitsandbytes
+$env:LECTUREBUDDY_MOCK="0"
+$env:LECTUREBUDDY_LOAD_MODE="4bit"
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Details: `src/inference/README.md`
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Ready / mock / device |
+| `POST /v1/ask` | Multipart video + question |
+| `POST /v1/ask_path` | Local path + question (JSON) |
+
 ## Project layout
 
 ```
@@ -19,10 +63,12 @@ LectureBuddy/
 ├── paper/
 │   └── VideoChat3.pdf
 ├── notes/
-│   ├── summary.md      # algorithm + component inventory
-│   └── checklist.md    # implement one task at a time (easy → hard)
-├── src/                # frontend + inference service (built task-by-task)
-├── data/               # sample videos / session artifacts
+│   ├── summary.md
+│   └── checklist.md
+├── src/
+│   ├── frontend/       # React + Vite UI
+│   └── inference/      # FastAPI + VideoChat3-4B wrapper
+├── data/               # uploads / sample videos
 └── README.md
 ```
 
@@ -46,7 +92,11 @@ Full inventory: `notes/summary.md`.
 
 ## Status
 
-Scaffold + paper notes only. Next task TBD (recommended: React frontend shell).
+- [x] Scaffold + paper notes
+- [x] React frontend shell with mock study actions
+- [x] VideoChat3 inference API (`src/inference`)
+- [x] Wire React ↔ inference API
+- [ ] Richer lecture study prompts (next)
 
 ## References
 

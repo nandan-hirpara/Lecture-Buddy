@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Inference uploads / caches
+data/uploads/*
+!data/uploads/.gitkeep
+data/*.mp4
+data/*.webm
+data/*.mov
+
+# Node
+src/frontend/node_modules/
+src/frontend/dist/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

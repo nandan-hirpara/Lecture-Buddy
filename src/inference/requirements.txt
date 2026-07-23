@@ -1,0 +1,34 @@
+# LectureBuddy inference service — VideoChat3-4B
+#
+# Install (GPU recommended):
+#   pip install -r requirements.txt
+#   # IMPORTANT: replace CPU torch with a CUDA build if `python -c "import torch; print(torch.cuda.is_available())"` is False:
+#   pip uninstall -y torch torchvision
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# (plain `pip install` will keep an existing +cpu wheel and do nothing)
+#
+# RTX 3060 6GB: prefer 4-bit (requires CUDA torch + bitsandbytes)
+#   set LECTUREBUDDY_LOAD_MODE=4bit
+#   pip install bitsandbytes
+#
+# Dry-run without downloading weights:
+#   set LECTUREBUDDY_MOCK=1
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+pydantic>=2.9.0
+
+torch>=2.4.0
+torchvision>=0.19.0
+transformers>=4.51.0
+accelerate>=1.0.0
+qwen-vl-utils>=0.0.11
+decord>=0.6.0
+opencv-python-headless>=4.10.0
+
+# Optional — needed for LECTUREBUDDY_LOAD_MODE=4bit|8bit on small GPUs
+# bitsandbytes>=0.44.0
+#
+# Optional — FlashAttention 2 (Linux/CUDA only; Windows usually uses SDPA fallback)
+# flash-attn --no-build-isolation
