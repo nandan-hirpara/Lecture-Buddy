@@ -45,6 +45,10 @@ Real model (your machine has an RTX 3060 6GB — use 4-bit):
 pip install bitsandbytes
 $env:LECTUREBUDDY_MOCK="0"
 $env:LECTUREBUDDY_LOAD_MODE="4bit"
+# Optional if you still hit CUDA OOM on long/high-res lectures:
+# $env:LECTUREBUDDY_MAX_FRAMES="4"
+# $env:LECTUREBUDDY_VIDEO_FPS="0.25"
+# Keep max_pixels >= 100352 (qwen video minimum); lowering it further errors.
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
