@@ -1,40 +1,40 @@
-/** Mock lecture-companion replies until VideoChat3 inference is wired. */
+/** Study actions + mock replies for the lecture companion UI. */
 
 const TASKS = [
   {
     id: 'explain',
     label: 'Explain',
-    prompt: 'Explain this topic.',
+    chatText: 'Explain this lecture.',
   },
   {
     id: 'notes',
     label: 'Notes',
-    prompt: 'Generate notes.',
+    chatText: 'Generate study notes.',
   },
   {
     id: 'flashcards',
     label: 'Flashcards',
-    prompt: 'Generate flashcards.',
+    chatText: 'Generate flashcards.',
   },
   {
     id: 'quiz',
     label: 'Quiz',
-    prompt: 'Create a quiz.',
+    chatText: 'Create a quiz.',
   },
   {
     id: 'chapters',
     label: 'Chapters',
-    prompt: 'Summarize each chapter.',
+    chatText: 'Summarize each chapter.',
   },
   {
     id: 'formulas',
     label: 'Formulas',
-    prompt: 'List important formulas.',
+    chatText: 'List important formulas.',
   },
   {
     id: 'find',
     label: 'Find topic',
-    prompt: 'Find where recursion was introduced.',
+    chatText: 'Find where the main concept was introduced.',
   },
 ]
 
@@ -86,7 +86,7 @@ Chapter boundaries will later come from temporal segmentation.`,
 OCR + video QA will replace this stub.`,
     find: `**Mock temporal grounding**
 
-Query: “where recursion was introduced”
+Query: “${userText || 'main concept'}”
 
 → **Approx. 12:40–14:05** (placeholder)
 

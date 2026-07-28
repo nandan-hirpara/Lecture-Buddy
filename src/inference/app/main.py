@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .model import engine
+from .prompts import build_lecture_prompt
 from .schemas import AskPathRequest, AskResponse, HealthResponse
 
 logging.basicConfig(
@@ -80,17 +81,23 @@ def health() -> HealthResponse:
 async def ask_upload(
     question: str = Form(...),
     video: UploadFile = File(...),
+    task: str | None = Form(default=None),
     max_new_tokens: int | None = Form(default=None),
 ) -> AskResponse:
     if not question.strip():
         raise HTTPException(status_code=400, detail="question must be non-empty")
+
+    try:
+        prompt = build_lecture_prompt(task, question)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
     dest = settings.upload_dir / f"{uuid.uuid4().hex}{suffix}"
     try:
         with dest.open("wb") as out:
             shutil.copyfileobj(video.file, out)
-        result = engine.ask(dest, question, max_new_tokens=max_new_tokens)
+        result = engine.ask(dest, prompt, max_new_tokens=max_new_tokens)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
@@ -116,7 +123,8 @@ async def ask_upload(
 @app.post("/v1/ask_path", response_model=AskResponse)
 def ask_path(body: AskPathRequest) -> AskResponse:
     try:
-        result = engine.ask(body.video_path, body.question, max_new_tokens=body.max_new_tokens)
+        prompt = build_lecture_prompt(body.task, body.question)
+        result = engine.ask(body.video_path, prompt, max_new_tokens=body.max_new_tokens)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:

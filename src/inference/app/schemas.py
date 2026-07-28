@@ -19,6 +19,10 @@ class HealthResponse(BaseModel):
 class AskPathRequest(BaseModel):
     video_path: str = Field(..., description="Absolute or relative path to a local video file")
     question: str = Field(..., min_length=1)
+    task: str | None = Field(
+        default=None,
+        description="Optional study task id: explain, notes, flashcards, quiz, chapters, formulas, find",
+    )
     max_new_tokens: int | None = Field(default=None, ge=1, le=4096)
 
 

@@ -14,12 +14,24 @@ if str(ROOT) not in sys.path:
 
 from app.config import settings  # noqa: E402
 from app.model import engine  # noqa: E402
+from app.prompts import STUDY_TASKS, build_lecture_prompt  # noqa: E402
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Ask VideoChat3-4B about a local video")
     parser.add_argument("video", type=Path, help="Path to lecture video")
-    parser.add_argument("question", type=str, help="Question about the video")
+    parser.add_argument(
+        "question",
+        type=str,
+        help="Question about the video (or topic text when --task find)",
+    )
+    parser.add_argument(
+        "--task",
+        type=str,
+        default=None,
+        choices=sorted(STUDY_TASKS),
+        help="Lecture study action (uses a structured prompt template)",
+    )
     parser.add_argument("--max-new-tokens", type=int, default=None)
     parser.add_argument("--json", action="store_true", help="Print JSON instead of plain text")
     args = parser.parse_args()
@@ -27,7 +39,8 @@ def main() -> int:
     if not settings.mock:
         engine.load()
 
-    result = engine.ask(args.video, args.question, max_new_tokens=args.max_new_tokens)
+    prompt = build_lecture_prompt(args.task, args.question)
+    result = engine.ask(args.video, prompt, max_new_tokens=args.max_new_tokens)
     if args.json:
         print(
             json.dumps(
@@ -36,6 +49,8 @@ def main() -> int:
                     "model_id": result.model_id,
                     "mock": result.mock,
                     "device": result.device,
+                    "task": args.task,
+                    "prompt": prompt,
                 },
                 indent=2,
             )

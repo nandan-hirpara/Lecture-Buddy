@@ -14,12 +14,15 @@ export async function fetchHealth({ signal } = {}) {
  * Upload a lecture video + question to VideoChat3.
  * @param {File} videoFile
  * @param {string} question
- * @param {{ signal?: AbortSignal, maxNewTokens?: number }} [opts]
+ * @param {{ signal?: AbortSignal, maxNewTokens?: number, task?: string }} [opts]
  */
 export async function askVideo(videoFile, question, opts = {}) {
   const form = new FormData()
   form.append('question', question)
   form.append('video', videoFile, videoFile.name)
+  if (opts.task) {
+    form.append('task', opts.task)
+  }
   if (opts.maxNewTokens != null) {
     form.append('max_new_tokens', String(opts.maxNewTokens))
   }

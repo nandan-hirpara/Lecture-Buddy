@@ -47,8 +47,11 @@ First real start downloads the HF weights (several GB).
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Readiness / device / mock flag |
-| POST | `/v1/ask` | Multipart: `video` + `question` (+ optional `max_new_tokens`) |
-| POST | `/v1/ask_path` | JSON: `{ "video_path", "question", "max_new_tokens?" }` |
+| POST | `/v1/ask` | Multipart: `video` + `question` (+ optional `task`, `max_new_tokens`) |
+| POST | `/v1/ask_path` | JSON: `{ "video_path", "question", "task?", "max_new_tokens?" }` |
+
+Optional `task` values: `explain`, `notes`, `flashcards`, `quiz`, `chapters`, `formulas`, `find`.  
+These expand into lecture study prompts in `app/prompts.py` before VideoChat3 runs. Free-form chat omits `task`.
 
 ### Example
 
@@ -56,7 +59,8 @@ First real start downloads the HF weights (several GB).
 curl -s http://127.0.0.1:8000/health
 
 curl -s -X POST http://127.0.0.1:8000/v1/ask ^
-  -F "question=What is the main topic of this lecture?" ^
+  -F "question=Generate study notes." ^
+  -F "task=notes" ^
   -F "video=@..\..\data\sample.mp4"
 ```
 
@@ -65,6 +69,8 @@ curl -s -X POST http://127.0.0.1:8000/v1/ask ^
 ```powershell
 $env:LECTUREBUDDY_MOCK="1"
 python scripts/ask_cli.py ..\..\data\sample.mp4 "Summarize this lecture."
+python scripts/ask_cli.py ..\..\data\sample.mp4 "recursion" --task find
+python scripts/ask_cli.py ..\..\data\sample.mp4 "notes" --task notes
 ```
 
 ## Notes

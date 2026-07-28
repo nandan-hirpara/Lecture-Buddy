@@ -26,7 +26,7 @@ Legend: `[P]` = paper/algorithm component · `[L]` = LectureBuddy product extens
 
 7. [x] `[P]` Python inference service wrapping [VideoChat3-4B](https://huggingface.co/MCG-NJU/VideoChat3-4B) (offline video QA)
 8. [x] `[L]` Connect React upload + chat to the inference API
-9. [ ] `[L]` Implement lecture prompts on top of video QA (notes, flashcards, quizzes, formulas)
+9. [x] `[L]` Implement lecture prompts on top of video QA (notes, flashcards, quizzes, formulas)
 10. [ ] `[P]` Temporal grounding endpoint ("Find where recursion was introduced" → timestamps)
 11. [ ] `[P]` Streaming / proactive loop (Silence / Standby / Response + adaptive resolution) via official proactive demo pattern
 
@@ -53,7 +53,7 @@ Legend: `[P]` = paper/algorithm component · `[L]` = LectureBuddy product extens
 
 ## Next recommended task
 
-**Task 9:** Implement lecture prompts on top of video QA (notes, flashcards, quizzes, formulas).
+**Task 10:** Temporal grounding endpoint ("Find where … was introduced" → timestamps).
 
 ---
 

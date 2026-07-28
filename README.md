@@ -100,7 +100,8 @@ Full inventory: `notes/summary.md`.
 - [x] React frontend shell with mock study actions
 - [x] VideoChat3 inference API (`src/inference`)
 - [x] Wire React ↔ inference API
-- [ ] Richer lecture study prompts (next)
+- [x] Lecture study prompts (notes / flashcards / quiz / formulas / …)
+- [ ] Temporal grounding endpoint (next)
 
 ## References
 

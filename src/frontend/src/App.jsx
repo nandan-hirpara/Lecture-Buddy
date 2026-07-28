@@ -115,7 +115,10 @@ export default function App() {
     // Long videos on a 6GB GPU can take several minutes.
     const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000)
     try {
-      const result = await askVideo(videoFile, userText, { signal: controller.signal })
+      const result = await askVideo(videoFile, userText, {
+        signal: controller.signal,
+        task: taskId && taskId !== 'chat' ? taskId : undefined,
+      })
       const badge = result.mock ? ' [api-mock]' : ''
       return `${result.answer}${badge}`
     } finally {
@@ -179,7 +182,7 @@ export default function App() {
   }
 
   function onTask(task) {
-    void pushExchange(task.prompt, task.id)
+    void pushExchange(task.chatText, task.id)
   }
 
   function onSubmit(event) {
