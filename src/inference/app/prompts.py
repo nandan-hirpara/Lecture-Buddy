@@ -17,7 +17,7 @@ STUDY_TASKS: Final[frozenset[str]] = frozenset(
     }
 )
 
-_GROUNDING = (
+GROUNDING_INSTRUCTION = (
     "Ground every claim in what is said or shown in this lecture video. "
     "If something is unclear or not covered, say so instead of inventing details."
 )
@@ -33,7 +33,7 @@ Structure your answer as:
 4. A concrete example from the lecture if one appears
 5. Common pitfalls or caveats mentioned
 
-{_GROUNDING}""",
+{GROUNDING_INSTRUCTION}""",
     "notes": f"""You are LectureBuddy. Produce concise study notes for this lecture video.
 
 Format as markdown:
@@ -43,7 +43,7 @@ Format as markdown:
 - Key terms glossary (term — definition)
 - Takeaways (3 bullets)
 
-Keep notes skimmable and faithful to the video. {_GROUNDING}""",
+Keep notes skimmable and faithful to the video. {GROUNDING_INSTRUCTION}""",
     "flashcards": f"""You are LectureBuddy. Create flashcards for active recall from this lecture video.
 
 Output a markdown table with columns: Front | Back
@@ -52,7 +52,7 @@ Output a markdown table with columns: Front | Back
 - Back: a short accurate answer grounded in the lecture
 - Prefer definitions, why/how questions, and comparisons over trivia
 
-{_GROUNDING}""",
+{GROUNDING_INSTRUCTION}""",
     "quiz": f"""You are LectureBuddy. Write a short quiz to check understanding of this lecture video.
 
 Requirements:
@@ -60,7 +60,7 @@ Requirements:
 - Cover core ideas, not obscure asides
 - After all questions, add an **Answer key** with brief justifications
 
-{_GROUNDING}""",
+{GROUNDING_INSTRUCTION}""",
     "chapters": f"""You are LectureBuddy. Segment this lecture into logical chapters and summarize each.
 
 For each chapter provide:
@@ -68,7 +68,7 @@ For each chapter provide:
 - Short title
 - 2–4 sentence summary of what is taught
 
-Aim for 3–6 chapters covering the full video. {_GROUNDING}""",
+Aim for 3–6 chapters covering the full video. {GROUNDING_INSTRUCTION}""",
     "formulas": f"""You are LectureBuddy. Extract important formulas, equations, and formal identities from this lecture video.
 
 For each item list:
@@ -76,7 +76,7 @@ For each item list:
 - The formula in plain text or LaTeX-like notation
 - When / why it is used in the lecture
 
-If the board or slides show a derivation, include the final result and one intermediate form if emphasized. {_GROUNDING}""",
+If the board or slides show a derivation, include the final result and one intermediate form if emphasized. {GROUNDING_INSTRUCTION}""",
     "find": f"""You are LectureBuddy. Locate where the following topic is introduced or explained in this lecture video:
 
 Topic: {{topic}}
@@ -86,7 +86,7 @@ Reply with:
 2. What is said or shown at that moment
 3. Brief before/after context
 
-If the topic never appears, say so and point to the closest related segment. {_GROUNDING}""",
+If the topic never appears, say so and point to the closest related segment. {GROUNDING_INSTRUCTION}""",
 }
 
 

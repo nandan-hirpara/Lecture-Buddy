@@ -1,10 +1,21 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { askVideo, fetchHealth } from './api.js'
+import { askVideo, fetchHealth, groundVideo } from './api.js'
 import { TASKS, mockReply } from './mock/responses.js'
 import './App.css'
 
 function formatTime(date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatClock(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 function describeApi(health) {
@@ -13,6 +24,29 @@ function describeApi(health) {
   if (!health.ready) return { label: 'API loading…', ready: false }
   if (health.mock) return { label: 'API mock', ready: true }
   return { label: 'VideoChat3 live', ready: true }
+}
+
+function mockGrounding(query) {
+  return {
+    query,
+    found: true,
+    segments: [
+      {
+        start_sec: 12,
+        end_sec: 45,
+        label: 'First introduction (mock)',
+        evidence: `Placeholder span for “${query}”.`,
+      },
+      {
+        start_sec: 120,
+        end_sec: 150,
+        label: 'Follow-up mention (mock)',
+        evidence: 'Secondary placeholder span.',
+      },
+    ],
+    display: `**Temporal grounding** for “${query}”\n\nJump points (mock):\n- **0:12–0:45** — First introduction\n- **2:00–2:30** — Follow-up mention`,
+    mock: true,
+  }
 }
 
 export default function App() {
@@ -100,31 +134,58 @@ export default function App() {
 
   async function resolveReply(userText, taskId) {
     if (!videoFile) {
-      return mockReply(taskId, null, userText)
+      return { text: mockReply(taskId, null, userText), segments: null }
     }
 
     if (!api.ready) {
-      return (
-        mockReply(taskId, videoFile.name, userText) +
-        '\n\n_(API offline — mock fallback. Start src/inference uvicorn on :8000.)_'
-      )
+      if (taskId === 'find') {
+        const ground = mockGrounding(userText)
+        return {
+          text:
+            ground.display +
+            '\n\n_(API offline — mock grounding. Start src/inference uvicorn on :8000.)_',
+          segments: ground.segments,
+        }
+      }
+      return {
+        text:
+          mockReply(taskId, videoFile.name, userText) +
+          '\n\n_(API offline — mock fallback. Start src/inference uvicorn on :8000.)_',
+        segments: null,
+      }
     }
 
     const controller = new AbortController()
     abortRef.current = controller
-    // Long videos on a 6GB GPU can take several minutes.
     const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000)
     try {
+      if (taskId === 'find') {
+        const result = await groundVideo(videoFile, userText, { signal: controller.signal })
+        const badge = result.mock ? ' [api-mock]' : ''
+        return {
+          text: `${result.display}${badge}`,
+          segments: result.segments || [],
+        }
+      }
+
       const result = await askVideo(videoFile, userText, {
         signal: controller.signal,
         task: taskId && taskId !== 'chat' ? taskId : undefined,
       })
       const badge = result.mock ? ' [api-mock]' : ''
-      return `${result.answer}${badge}`
+      return { text: `${result.answer}${badge}`, segments: null }
     } finally {
       clearTimeout(timeout)
       if (abortRef.current === controller) abortRef.current = null
     }
+  }
+
+  function seekTo(seconds) {
+    const el = videoRef.current
+    if (!el) return
+    const t = Math.max(0, Number(seconds) || 0)
+    el.currentTime = t
+    void el.play?.()
   }
 
   async function pushExchange(userText, taskId = 'chat') {
@@ -158,7 +219,8 @@ export default function App() {
         {
           id: `a-${Date.now()}`,
           role: 'assistant',
-          text: reply,
+          text: reply.text,
+          segments: reply.segments,
           at: new Date(),
         },
       ])
@@ -182,6 +244,12 @@ export default function App() {
   }
 
   function onTask(task) {
+    if (task.id === 'find') {
+      const topic = draft.trim() || task.chatText
+      if (draft.trim()) setDraft('')
+      void pushExchange(topic, 'find')
+      return
+    }
     void pushExchange(task.chatText, task.id)
   }
 
@@ -274,6 +342,22 @@ export default function App() {
                   <time dateTime={msg.at.toISOString()}>{formatTime(msg.at)}</time>
                 </header>
                 <div className="bubble-body">{msg.text}</div>
+                {msg.segments?.length ? (
+                  <div className="seek-row" aria-label="Jump to timestamps">
+                    {msg.segments.map((seg, idx) => (
+                      <button
+                        key={`${msg.id}-seg-${idx}`}
+                        type="button"
+                        className="seek-btn"
+                        onClick={() => seekTo(seg.start_sec)}
+                        title={seg.evidence || seg.label || 'Seek'}
+                      >
+                        ▶ {formatClock(seg.start_sec)}
+                        {seg.end_sec != null ? `–${formatClock(seg.end_sec)}` : ''}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </article>
             ))}
             {busy ? (
@@ -293,7 +377,7 @@ export default function App() {
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Ask anything about the lecture…"
+              placeholder="Ask anything… or type a topic then click Find topic"
               disabled={busy}
               autoComplete="off"
             />

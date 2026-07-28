@@ -34,7 +34,7 @@ const TASKS = [
   {
     id: 'find',
     label: 'Find topic',
-    chatText: 'Find where the main concept was introduced.',
+    chatText: 'the main concept',
   },
 ]
 

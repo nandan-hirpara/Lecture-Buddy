@@ -12,9 +12,22 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .grounding import (
+    build_grounding_prompt,
+    format_grounding_markdown,
+    mock_grounding,
+    parse_grounding_answer,
+)
 from .model import engine
 from .prompts import build_lecture_prompt
-from .schemas import AskPathRequest, AskResponse, HealthResponse
+from .schemas import (
+    AskPathRequest,
+    AskResponse,
+    GroundPathRequest,
+    GroundResponse,
+    GroundSegmentModel,
+    HealthResponse,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -140,3 +153,84 @@ def ask_path(body: AskPathRequest) -> AskResponse:
         device=result.device,
         video_name=Path(body.video_path).name,
     )
+
+
+def _run_grounding(video_path: str | Path, query: str, max_new_tokens: int | None) -> GroundResponse:
+    q = query.strip()
+    if not q:
+        raise ValueError("query must be non-empty")
+
+    if settings.mock:
+        found, segments, answer = mock_grounding(q)
+        display = format_grounding_markdown(q, found, segments, answer)
+        return GroundResponse(
+            query=q,
+            found=found,
+            segments=[GroundSegmentModel(**s.as_dict()) for s in segments],
+            answer=answer,
+            display=display,
+            model_id=settings.model_id,
+            mock=True,
+            device="mock",
+            video_name=Path(video_path).name,
+        )
+
+    prompt = build_grounding_prompt(q)
+    # Grounding answers are usually short JSON + a paragraph.
+    tokens = max_new_tokens or min(settings.max_new_tokens, 384)
+    result = engine.ask(video_path, prompt, max_new_tokens=tokens)
+    found, segments = parse_grounding_answer(result.answer)
+    display = format_grounding_markdown(q, found, segments, result.answer)
+    return GroundResponse(
+        query=q,
+        found=found,
+        segments=[GroundSegmentModel(**s.as_dict()) for s in segments],
+        answer=result.answer,
+        display=display,
+        model_id=result.model_id,
+        mock=result.mock,
+        device=result.device,
+        video_name=Path(video_path).name,
+    )
+
+
+@app.post("/v1/ground", response_model=GroundResponse)
+async def ground_upload(
+    query: str = Form(...),
+    video: UploadFile = File(...),
+    max_new_tokens: int | None = Form(default=None),
+) -> GroundResponse:
+    if not query.strip():
+        raise HTTPException(status_code=400, detail="query must be non-empty")
+
+    suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
+    dest = settings.upload_dir / f"{uuid.uuid4().hex}{suffix}"
+    try:
+        with dest.open("wb") as out:
+            shutil.copyfileobj(video.file, out)
+        return _run_grounding(dest, query, max_new_tokens)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Grounding failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+@app.post("/v1/ground_path", response_model=GroundResponse)
+def ground_path(body: GroundPathRequest) -> GroundResponse:
+    try:
+        return _run_grounding(body.video_path, body.query, body.max_new_tokens)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Grounding failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

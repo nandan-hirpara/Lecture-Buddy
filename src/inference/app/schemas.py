@@ -32,3 +32,28 @@ class AskResponse(BaseModel):
     mock: bool
     device: str | None = None
     video_name: str | None = None
+
+
+class GroundSegmentModel(BaseModel):
+    start_sec: float = Field(..., ge=0)
+    end_sec: float = Field(..., ge=0)
+    label: str = ""
+    evidence: str = ""
+
+
+class GroundPathRequest(BaseModel):
+    video_path: str
+    query: str = Field(..., min_length=1, description="Topic or event to localize in the video")
+    max_new_tokens: int | None = Field(default=None, ge=1, le=4096)
+
+
+class GroundResponse(BaseModel):
+    query: str
+    found: bool
+    segments: list[GroundSegmentModel]
+    answer: str = Field(..., description="Raw model text")
+    display: str = Field(..., description="Markdown summary for the chat UI")
+    model_id: str
+    mock: bool
+    device: str | None = None
+    video_name: str | None = None

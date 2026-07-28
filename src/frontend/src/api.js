@@ -53,3 +53,44 @@ export async function askVideo(videoFile, question, opts = {}) {
 
   return payload
 }
+
+/**
+ * Upload a lecture video + topic query for temporal grounding.
+ * @param {File} videoFile
+ * @param {string} query
+ * @param {{ signal?: AbortSignal, maxNewTokens?: number }} [opts]
+ */
+export async function groundVideo(videoFile, query, opts = {}) {
+  const form = new FormData()
+  form.append('query', query)
+  form.append('video', videoFile, videoFile.name)
+  if (opts.maxNewTokens != null) {
+    form.append('max_new_tokens', String(opts.maxNewTokens))
+  }
+
+  const res = await fetch(`${API_BASE}/v1/ground`, {
+    method: 'POST',
+    body: form,
+    signal: opts.signal,
+  })
+
+  let payload = null
+  try {
+    payload = await res.json()
+  } catch {
+    payload = null
+  }
+
+  if (!res.ok) {
+    const detail = payload?.detail
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+          : `Grounding request failed (${res.status})`
+    throw new Error(message)
+  }
+
+  return payload
+}

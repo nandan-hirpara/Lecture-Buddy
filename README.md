@@ -101,7 +101,8 @@ Full inventory: `notes/summary.md`.
 - [x] VideoChat3 inference API (`src/inference`)
 - [x] Wire React ↔ inference API
 - [x] Lecture study prompts (notes / flashcards / quiz / formulas / …)
-- [ ] Temporal grounding endpoint (next)
+- [x] Temporal grounding endpoint (`/v1/ground` → timestamps + seek UI)
+- [ ] Streaming / proactive loop (next)
 
 ## References
 

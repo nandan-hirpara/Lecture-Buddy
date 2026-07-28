@@ -49,9 +49,13 @@ First real start downloads the HF weights (several GB).
 | GET | `/health` | Readiness / device / mock flag |
 | POST | `/v1/ask` | Multipart: `video` + `question` (+ optional `task`, `max_new_tokens`) |
 | POST | `/v1/ask_path` | JSON: `{ "video_path", "question", "task?", "max_new_tokens?" }` |
+| POST | `/v1/ground` | Multipart temporal grounding: `video` + `query` → timestamps |
+| POST | `/v1/ground_path` | JSON grounding: `{ "video_path", "query", "max_new_tokens?" }` |
 
 Optional `task` values: `explain`, `notes`, `flashcards`, `quiz`, `chapters`, `formulas`, `find`.  
 These expand into lecture study prompts in `app/prompts.py` before VideoChat3 runs. Free-form chat omits `task`.
+
+`/v1/ground` asks VideoChat3 for JSON timestamp segments, parses them in `app/grounding.py`, and returns jump points for the UI.
 
 ### Example
 
@@ -62,6 +66,10 @@ curl -s -X POST http://127.0.0.1:8000/v1/ask ^
   -F "question=Generate study notes." ^
   -F "task=notes" ^
   -F "video=@..\..\data\sample.mp4"
+
+curl -s -X POST http://127.0.0.1:8000/v1/ground ^
+  -F "query=recursion" ^
+  -F "video=@..\..\data\sample.mp4"
 ```
 
 ### CLI
@@ -71,6 +79,7 @@ $env:LECTUREBUDDY_MOCK="1"
 python scripts/ask_cli.py ..\..\data\sample.mp4 "Summarize this lecture."
 python scripts/ask_cli.py ..\..\data\sample.mp4 "recursion" --task find
 python scripts/ask_cli.py ..\..\data\sample.mp4 "notes" --task notes
+python scripts/ground_cli.py ..\..\data\sample.mp4 "recursion"
 ```
 
 ## Notes
