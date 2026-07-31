@@ -64,6 +64,7 @@ Details: `src/inference/README.md`
 | `POST /v1/ask_path` | Local path + question (JSON) |
 | `POST /v1/ground` | Temporal grounding → timestamps |
 | `POST /v1/proactive` | Proactive Silence/Standby/Response stream |
+| `POST /v1/chapters` | Timed chapter outline + summaries |
 
 ## Project layout
 
@@ -108,7 +109,8 @@ Full inventory: `notes/summary.md`.
 - [x] Lecture study prompts (notes / flashcards / quiz / formulas / …)
 - [x] Temporal grounding endpoint (`/v1/ground` → timestamps + seek UI)
 - [x] Streaming / proactive loop (`/v1/proactive` + Live button)
-- [ ] Chapter segmentation UX (next)
+- [x] Chapter segmentation UX (`/v1/chapters` + outline rail)
+- [ ] Structured study outputs (next)
 
 ## References
 

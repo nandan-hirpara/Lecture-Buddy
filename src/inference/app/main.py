@@ -11,6 +11,12 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from .chapters import (
+    build_chapters_prompt,
+    format_chapters_markdown,
+    mock_chapters,
+    parse_chapters_answer,
+)
 from .config import settings
 from .grounding import (
     build_grounding_prompt,
@@ -23,6 +29,9 @@ from .prompts import build_lecture_prompt
 from .schemas import (
     AskPathRequest,
     AskResponse,
+    ChapterModel,
+    ChaptersPathRequest,
+    ChaptersResponse,
     GroundPathRequest,
     GroundResponse,
     GroundSegmentModel,
@@ -236,6 +245,115 @@ def ground_path(body: GroundPathRequest) -> GroundResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         logger.exception("Grounding failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _run_chapters(video_path: str | Path, max_new_tokens: int | None) -> ChaptersResponse:
+    from .chapters import (
+        apply_time_slots,
+        build_time_slots,
+        coverage_ratio,
+        normalize_chapters,
+        probe_video_duration,
+    )
+
+    video_name = Path(video_path).name
+    duration = probe_video_duration(video_path)
+    slots = build_time_slots(duration)
+
+    if settings.mock:
+        title, chapters, answer = mock_chapters(video_name)
+        chapters = apply_time_slots(chapters, slots) if duration else normalize_chapters(
+            chapters, duration
+        )
+        display = format_chapters_markdown(
+            title, chapters, answer, duration_sec=duration
+        )
+        return ChaptersResponse(
+            title=title,
+            chapters=[ChapterModel(**c.as_dict()) for c in chapters],
+            answer=answer,
+            display=display,
+            model_id=settings.model_id,
+            mock=True,
+            device="mock",
+            video_name=video_name,
+        )
+
+    prompt = build_chapters_prompt(duration, slots=slots)
+    # Compact title/summary JSON for ~5 slots; keep runtime closer to normal asks.
+    tokens = max_new_tokens or max(settings.max_new_tokens, 512)
+    frames = settings.max_frames
+
+    result = engine.ask(
+        video_path,
+        prompt,
+        max_new_tokens=tokens,
+        max_frames=frames,
+    )
+    title, chapters = parse_chapters_answer(result.answer)
+    # Always bind labels onto the full-duration scaffold so seek rail covers 0→end.
+    chapters = apply_time_slots(chapters, slots)
+    cov = coverage_ratio(chapters, duration)
+    logger.info(
+        "chapters parsed=%s slots=%s coverage=%.0f%% duration=%s tokens=%s frames=%s",
+        len(chapters),
+        len(slots),
+        cov * 100,
+        f"{duration:.0f}s" if duration else "?",
+        tokens,
+        frames,
+    )
+    display = format_chapters_markdown(
+        title, chapters, result.answer, duration_sec=duration
+    )
+    return ChaptersResponse(
+        title=title,
+        chapters=[ChapterModel(**c.as_dict()) for c in chapters],
+        answer=result.answer,
+        display=display,
+        model_id=result.model_id,
+        mock=result.mock,
+        device=result.device,
+        video_name=video_name,
+    )
+
+
+@app.post("/v1/chapters", response_model=ChaptersResponse)
+async def chapters_upload(
+    video: UploadFile = File(...),
+    max_new_tokens: int | None = Form(default=None),
+) -> ChaptersResponse:
+    suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
+    dest = settings.upload_dir / f"{uuid.uuid4().hex}{suffix}"
+    try:
+        with dest.open("wb") as out:
+            shutil.copyfileobj(video.file, out)
+        return _run_chapters(dest, max_new_tokens)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Chapter segmentation failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+@app.post("/v1/chapters_path", response_model=ChaptersResponse)
+def chapters_path(body: ChaptersPathRequest) -> ChaptersResponse:
+    try:
+        return _run_chapters(body.video_path, body.max_new_tokens)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Chapter segmentation failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

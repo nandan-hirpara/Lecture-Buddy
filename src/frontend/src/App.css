@@ -207,6 +207,76 @@
   color: var(--ink-soft);
 }
 
+.chapter-outline {
+  max-height: 12rem;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 0.65rem;
+}
+
+.chapter-outline-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.chapter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.chapter-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 0.55rem;
+  row-gap: 0.15rem;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.5rem;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.chapter-item:hover {
+  background: rgba(15, 118, 110, 0.08);
+}
+
+.chapter-item[data-active='1'] {
+  background: rgba(15, 118, 110, 0.12);
+  border-color: rgba(15, 118, 110, 0.35);
+}
+
+.chapter-time {
+  grid-row: 1 / span 2;
+  align-self: start;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  padding-top: 0.12rem;
+}
+
+.chapter-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.chapter-summary {
+  grid-column: 2;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
 .ghost-btn {
   align-self: flex-start;
   border: 1px solid var(--line);

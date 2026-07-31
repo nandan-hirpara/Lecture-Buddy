@@ -90,3 +90,27 @@ class ProactiveResponse(BaseModel):
     device: str | None = None
     video_name: str | None = None
     start_sec: float = 0.0
+
+
+class ChapterModel(BaseModel):
+    index: int = Field(..., ge=1)
+    start_sec: float = Field(..., ge=0)
+    end_sec: float = Field(..., ge=0)
+    title: str
+    summary: str = ""
+
+
+class ChaptersPathRequest(BaseModel):
+    video_path: str
+    max_new_tokens: int | None = Field(default=None, ge=1, le=4096)
+
+
+class ChaptersResponse(BaseModel):
+    title: str | None = None
+    chapters: list[ChapterModel]
+    answer: str = Field(..., description="Raw model text")
+    display: str = Field(..., description="Markdown outline for the chat UI")
+    model_id: str
+    mock: bool
+    device: str | None = None
+    video_name: str | None = None

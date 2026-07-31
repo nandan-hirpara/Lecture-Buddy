@@ -68,7 +68,8 @@ For each chapter provide:
 - Short title
 - 2–4 sentence summary of what is taught
 
-Aim for 3–6 chapters covering the full video. {GROUNDING_INSTRUCTION}""",
+Aim for 3–6 chapters covering the full video with MM:SS–MM:SS ranges when possible.
+Prefer the dedicated /v1/chapters JSON schema when available. {GROUNDING_INSTRUCTION}""",
     "formulas": f"""You are LectureBuddy. Extract important formulas, equations, and formal identities from this lecture video.
 
 For each item list:

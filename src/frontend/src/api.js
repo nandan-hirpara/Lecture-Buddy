@@ -147,3 +147,42 @@ export async function proactiveVideo(videoFile, question, opts = {}) {
 
   return payload
 }
+
+/**
+ * Segment a lecture into timed chapters with per-chapter summaries.
+ * @param {File} videoFile
+ * @param {{ signal?: AbortSignal, maxNewTokens?: number }} [opts]
+ */
+export async function chaptersVideo(videoFile, opts = {}) {
+  const form = new FormData()
+  form.append('video', videoFile, videoFile.name)
+  if (opts.maxNewTokens != null) {
+    form.append('max_new_tokens', String(opts.maxNewTokens))
+  }
+
+  const res = await fetch(`${API_BASE}/v1/chapters`, {
+    method: 'POST',
+    body: form,
+    signal: opts.signal,
+  })
+
+  let payload = null
+  try {
+    payload = await res.json()
+  } catch {
+    payload = null
+  }
+
+  if (!res.ok) {
+    const detail = payload?.detail
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+          : `Chapters request failed (${res.status})`
+    throw new Error(message)
+  }
+
+  return payload
+}

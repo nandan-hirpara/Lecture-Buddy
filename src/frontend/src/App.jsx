@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { askVideo, fetchHealth, groundVideo, proactiveVideo } from './api.js'
+import { askVideo, chaptersVideo, fetchHealth, groundVideo, proactiveVideo } from './api.js'
 import { TASKS, mockReply } from './mock/responses.js'
 import './App.css'
 
@@ -31,11 +31,11 @@ function parseClock(text) {
 }
 
 function describeApi(health) {
-  if (!health) return { label: 'API offline', ready: false }
-  if (health.error) return { label: `API error`, ready: false }
-  if (!health.ready) return { label: 'API loading…', ready: false }
-  if (health.mock) return { label: 'API mock', ready: true }
-  return { label: 'VideoChat3 live', ready: true }
+  if (!health) return { label: 'API offline', ready: false, mock: false }
+  if (health.error) return { label: `API error`, ready: false, mock: false }
+  if (!health.ready) return { label: 'API loading…', ready: false, mock: Boolean(health.mock) }
+  if (health.mock) return { label: 'API mock', ready: true, mock: true }
+  return { label: 'VideoChat3 live', ready: true, mock: false }
 }
 
 function mockGrounding(query) {
@@ -84,6 +84,58 @@ function mockProactive(question, startSec = 0) {
   }
 }
 
+function mockChapters(videoName) {
+  const title = `${(videoName || 'lecture').replace(/\.[^.]+$/, '')} (mock outline)`
+  const chapters = [
+    {
+      index: 1,
+      start_sec: 0,
+      end_sec: 90,
+      title: 'Opening and agenda',
+      summary: 'Instructor sets motivation and lists what the lecture will cover.',
+    },
+    {
+      index: 2,
+      start_sec: 90,
+      end_sec: 240,
+      title: 'Core definitions',
+      summary: 'Key terms and notation are introduced with board/slide visuals.',
+    },
+    {
+      index: 3,
+      start_sec: 240,
+      end_sec: 420,
+      title: 'Main method',
+      summary: 'The central algorithm or derivation is walked through step by step.',
+    },
+    {
+      index: 4,
+      start_sec: 420,
+      end_sec: 540,
+      title: 'Worked example',
+      summary: 'A concrete example applies the method and highlights common mistakes.',
+    },
+    {
+      index: 5,
+      start_sec: 540,
+      end_sec: 600,
+      title: 'Wrap-up',
+      summary: 'Summary takeaways and suggested practice or next lecture preview.',
+    },
+  ]
+  return {
+    title,
+    chapters,
+    display: `**${title}**\n\n${chapters
+      .map(
+        (ch) =>
+          `${ch.index}. **${formatClock(ch.start_sec)}–${formatClock(ch.end_sec)}** — ${ch.title}\n   ${ch.summary}`,
+      )
+      .join('\n')}`,
+    mock: true,
+  }
+}
+
 export default function App() {
   const fileInputId = useId()
   const chatEndRef = useRef(null)
@@ -106,6 +158,8 @@ export default function App() {
   const [liveStartSec, setLiveStartSec] = useState(0)
   const [liveStartInput, setLiveStartInput] = useState('0:00')
   const [followPlayhead, setFollowPlayhead] = useState(true)
+  const [outline, setOutline] = useState(null)
+  const [activeChapterIdx, setActiveChapterIdx] = useState(null)
 
   const api = describeApi(apiHealth)
 
@@ -151,6 +205,8 @@ export default function App() {
     setLiveStartSec(0)
     setLiveStartInput('0:00')
     setFollowPlayhead(true)
+    setOutline(null)
+    setActiveChapterIdx(null)
     setMessages((prev) => [
       ...prev,
       {
@@ -173,6 +229,8 @@ export default function App() {
     setLiveStartSec(0)
     setLiveStartInput('0:00')
     setFollowPlayhead(true)
+    setOutline(null)
+    setActiveChapterIdx(null)
     if (videoRef.current) videoRef.current.removeAttribute('src')
   }
 
@@ -200,7 +258,7 @@ export default function App() {
   async function resolveReply(userText, taskId, opts = {}) {
     const startSec = Math.max(0, Number(opts.startSec) || 0)
     if (!videoFile) {
-      return { text: mockReply(taskId, null, userText), segments: null, rounds: null }
+      return { text: mockReply(taskId, null, userText), segments: null, rounds: null, chapters: null }
     }
 
     if (!api.ready) {
@@ -212,6 +270,7 @@ export default function App() {
             '\n\n_(API offline — mock grounding. Start src/inference uvicorn on :8000.)_',
           segments: ground.segments,
           rounds: null,
+          chapters: null,
         }
       }
       if (taskId === 'live') {
@@ -222,6 +281,19 @@ export default function App() {
             '\n\n_(API offline — mock proactive. Start src/inference uvicorn on :8000.)_',
           segments: null,
           rounds: live.rounds,
+          chapters: null,
+        }
+      }
+      if (taskId === 'chapters') {
+        const ch = mockChapters(videoFile.name)
+        return {
+          text:
+            ch.display +
+            '\n\n_(API offline — mock chapters. Start src/inference uvicorn on :8000.)_',
+          segments: null,
+          rounds: null,
+          chapters: ch.chapters,
+          chapterTitle: ch.title,
         }
       }
       return {
@@ -230,6 +302,7 @@ export default function App() {
           '\n\n_(API offline — mock fallback. Start src/inference uvicorn on :8000.)_',
         segments: null,
         rounds: null,
+        chapters: null,
       }
     }
 
@@ -244,6 +317,7 @@ export default function App() {
           text: `${result.display}${badge}`,
           segments: result.segments || [],
           rounds: null,
+          chapters: null,
         }
       }
 
@@ -257,6 +331,19 @@ export default function App() {
           text: `${result.display}${badge}`,
           segments: null,
           rounds: result.rounds || [],
+          chapters: null,
+        }
+      }
+
+      if (taskId === 'chapters') {
+        const result = await chaptersVideo(videoFile, { signal: controller.signal })
+        const badge = result.mock ? ' [api-mock]' : ''
+        return {
+          text: `${result.display}${badge}`,
+          segments: null,
+          rounds: null,
+          chapters: result.chapters || [],
+          chapterTitle: result.title,
         }
       }
 
@@ -265,7 +352,7 @@ export default function App() {
         task: taskId && taskId !== 'chat' ? taskId : undefined,
       })
       const badge = result.mock ? ' [api-mock]' : ''
-      return { text: `${result.answer}${badge}`, segments: null, rounds: null }
+      return { text: `${result.answer}${badge}`, segments: null, rounds: null, chapters: null }
     } finally {
       clearTimeout(timeout)
       if (abortRef.current === controller) abortRef.current = null
@@ -315,6 +402,13 @@ export default function App() {
 
     try {
       const reply = await resolveReply(userText, taskId, { startSec })
+      if (reply.chapters?.length) {
+        setOutline({
+          title: reply.chapterTitle || 'Lecture chapters',
+          chapters: reply.chapters,
+        })
+        setActiveChapterIdx(null)
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -323,6 +417,7 @@ export default function App() {
           text: reply.text,
           segments: reply.segments,
           rounds: reply.rounds,
+          chapters: reply.chapters,
           at: new Date(),
         },
       ])
@@ -386,7 +481,7 @@ export default function App() {
         <div className="status-row">
           <p className="status-pill" title={apiHealth?.model_id || 'Inference API'}>
             {api.label}
-            <span className="dot" data-ready={api.ready} />
+            <span className="dot" data-ready={api.ready} data-mock={api.mock ? '1' : '0'} />
           </p>
           <p className="status-pill">
             {videoFile ? videoFile.name : 'No video yet'}
@@ -406,8 +501,15 @@ export default function App() {
                 controls
                 playsInline
                 onTimeUpdate={() => {
-                  if (!followPlayhead) return
-                  syncLiveStartFromPlayer()
+                  if (followPlayhead) syncLiveStartFromPlayer()
+                  const t = videoRef.current?.currentTime || 0
+                  if (outline?.chapters?.length) {
+                    const hit = outline.chapters.find(
+                      (ch) => t >= ch.start_sec && t < (ch.end_sec > ch.start_sec ? ch.end_sec : ch.start_sec + 1),
+                    )
+                    const idx = hit?.index ?? null
+                    setActiveChapterIdx((prev) => (prev === idx ? prev : idx))
+                  }
                 }}
                 onSeeked={() => {
                   if (!followPlayhead) return
@@ -455,6 +557,32 @@ export default function App() {
                   {followPlayhead ? 'follows scrubber' : 'fixed'} · {formatClock(liveStartSec)}
                 </span>
               </div>
+              {outline?.chapters?.length ? (
+                <nav className="chapter-outline" aria-label="Lecture chapters">
+                  <p className="chapter-outline-title">{outline.title || 'Chapters'}</p>
+                  <ol className="chapter-list">
+                    {outline.chapters.map((ch) => (
+                      <li key={`outline-${ch.index}`}>
+                        <button
+                          type="button"
+                          className="chapter-item"
+                          data-active={activeChapterIdx === ch.index ? '1' : '0'}
+                          onClick={() => {
+                            setActiveChapterIdx(ch.index)
+                            seekTo(ch.start_sec)
+                          }}
+                        >
+                          <span className="chapter-time">
+                            {formatClock(ch.start_sec)}–{formatClock(ch.end_sec)}
+                          </span>
+                          <span className="chapter-name">{ch.title}</span>
+                          {ch.summary ? <span className="chapter-summary">{ch.summary}</span> : null}
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              ) : null}
               <button type="button" className="ghost-btn" onClick={clearVideo}>
                 Remove video
               </button>
@@ -534,6 +662,24 @@ export default function App() {
                       >
                         {formatClock(round.time_start)} {String(round.state || '').toUpperCase()}
                         {round.high_res ? ' · HR' : ''}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {msg.chapters?.length ? (
+                  <div className="seek-row" aria-label="Jump to chapters">
+                    {msg.chapters.map((ch, idx) => (
+                      <button
+                        key={`${msg.id}-ch-${idx}`}
+                        type="button"
+                        className="seek-btn"
+                        onClick={() => {
+                          setActiveChapterIdx(ch.index)
+                          seekTo(ch.start_sec)
+                        }}
+                        title={ch.summary || ch.title}
+                      >
+                        ▶ {formatClock(ch.start_sec)} {ch.title}
                       </button>
                     ))}
                   </div>

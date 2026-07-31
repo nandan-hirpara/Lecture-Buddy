@@ -34,7 +34,7 @@ Legend: `[P]` = paper/algorithm component · `[L]` = LectureBuddy product extens
 
 ## Tier D — Lecture-specific extension (meaningful beyond paper)
 
-12. [ ] `[L]` Chapter segmentation UX (scene/time chapters + per-chapter summary)
+12. [x] `[L]` Chapter segmentation UX (scene/time chapters + per-chapter summary)
 13. [ ] `[L]` Structured study outputs (JSON schemas for flashcards / quiz grading)
 14. [ ] `[L]` Persist sessions under `data/` (video metadata + chat history)
 
@@ -53,7 +53,7 @@ Legend: `[P]` = paper/algorithm component · `[L]` = LectureBuddy product extens
 
 ## Next recommended task
 
-**Task 12:** Chapter segmentation UX (scene/time chapters + per-chapter summary).
+**Task 13:** Structured study outputs (JSON schemas for flashcards / quiz grading).
 
 ---
 

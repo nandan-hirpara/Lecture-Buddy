@@ -347,6 +347,8 @@ class VideoChat3Engine:
         question: str,
         *,
         max_new_tokens: int | None = None,
+        max_frames: int | None = None,
+        video_fps: float | None = None,
     ) -> AskResult:
         path = Path(video_path)
         if not path.is_file():
@@ -375,6 +377,8 @@ class VideoChat3Engine:
         from qwen_vl_utils import process_vision_info
 
         tokens = max_new_tokens or settings.max_new_tokens
+        frames = max_frames if max_frames is not None else settings.max_frames
+        fps = video_fps if video_fps is not None else settings.video_fps
         # qwen_vl_utils rejects max_pixels < video min_pixels (~100352 at patch 14).
         max_pixels = max(settings.max_pixels, 100_352)
         messages = [
@@ -384,8 +388,8 @@ class VideoChat3Engine:
                     {
                         "type": "video",
                         "video": str(path.resolve()),
-                        "fps": settings.video_fps,
-                        "max_frames": settings.max_frames,
+                        "fps": fps,
+                        "max_frames": frames,
                         "max_pixels": max_pixels,
                     },
                     {"type": "text", "text": question.strip()},

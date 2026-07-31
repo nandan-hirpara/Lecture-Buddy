@@ -76,12 +76,13 @@ Five cards will be generated from lecture evidence in a later task.`,
 Answers appear after VideoChat3 grounding is enabled.`,
     chapters: `**Mock chapter summaries** — ${name}
 
-- **0:00–…** Opening and agenda
-- **…** Core concept introduction
-- **…** Worked example
-- **…** Wrap-up and next steps
+1. **0:00–1:30** — Opening and agenda
+2. **1:30–4:00** — Core definitions
+3. **4:00–7:00** — Main method
+4. **7:00–9:00** — Worked example
+5. **9:00–10:00** — Wrap-up
 
-Chapter boundaries will later come from temporal segmentation.`,
+_(Stub — real timed chapters come from /v1/chapters.)_`,
     formulas: `**Mock formulas**
 
 - Definition / identity highlighted on the board
