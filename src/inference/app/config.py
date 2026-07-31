@@ -29,6 +29,10 @@ class Settings:
     video_fps: float = float(os.getenv("LECTUREBUDDY_VIDEO_FPS", "0.5"))
     max_frames: int = int(os.getenv("LECTUREBUDDY_MAX_FRAMES", "8"))
     max_pixels: int = int(os.getenv("LECTUREBUDDY_MAX_PIXELS", "100352"))
+    # Proactive streaming (Task 11) — conservative for ~6GB GPUs
+    proactive_fps: float = float(os.getenv("LECTUREBUDDY_PROACTIVE_FPS", "0.5"))
+    proactive_max_rounds: int = int(os.getenv("LECTUREBUDDY_PROACTIVE_MAX_ROUNDS", "8"))
+    proactive_max_seconds: float = float(os.getenv("LECTUREBUDDY_PROACTIVE_MAX_SECONDS", "45"))
     upload_dir: Path = Path(
         os.getenv(
             "LECTUREBUDDY_UPLOAD_DIR",

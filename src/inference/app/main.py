@@ -27,6 +27,9 @@ from .schemas import (
     GroundResponse,
     GroundSegmentModel,
     HealthResponse,
+    ProactivePathRequest,
+    ProactiveResponse,
+    ProactiveRoundModel,
 )
 
 logging.basicConfig(
@@ -233,4 +236,113 @@ def ground_path(body: GroundPathRequest) -> GroundResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         logger.exception("Grounding failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _run_proactive(
+    video_path: str | Path,
+    question: str,
+    *,
+    target_fps: float | None = None,
+    max_rounds: int | None = None,
+    max_seconds: float | None = None,
+    max_new_tokens: int | None = None,
+    start_sec: float | None = None,
+) -> ProactiveResponse:
+    from .streaming import format_proactive_markdown
+
+    result = engine.proactive(
+        video_path,
+        question,
+        target_fps=target_fps,
+        max_rounds=max_rounds,
+        max_seconds=max_seconds,
+        max_new_tokens=max_new_tokens,
+        start_sec=start_sec,
+    )
+    rounds = [
+        ProactiveRoundModel(
+            round_idx=r.round_idx,
+            time_start=r.time_start,
+            time_end=r.time_end,
+            state=r.state,
+            high_res=r.high_res,
+            max_pixels=r.max_pixels,
+            raw=r.raw,
+            answer_text=r.answer_text,
+        )
+        for r in result.rounds
+    ]
+    return ProactiveResponse(
+        question=result.question,
+        rounds=rounds,
+        final_answer=result.final_answer,
+        display=format_proactive_markdown(result),
+        model_id=settings.model_id,
+        mock=result.mock,
+        device=engine.status.get("device"),
+        video_name=Path(video_path).name,
+        start_sec=result.start_sec,
+    )
+
+
+@app.post("/v1/proactive", response_model=ProactiveResponse)
+async def proactive_upload(
+    question: str = Form(...),
+    video: UploadFile = File(...),
+    target_fps: float | None = Form(default=None),
+    max_rounds: int | None = Form(default=None),
+    max_seconds: float | None = Form(default=None),
+    max_new_tokens: int | None = Form(default=None),
+    start_sec: float | None = Form(default=None),
+) -> ProactiveResponse:
+    if not question.strip():
+        raise HTTPException(status_code=400, detail="question must be non-empty")
+
+    suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
+    dest = settings.upload_dir / f"{uuid.uuid4().hex}{suffix}"
+    try:
+        with dest.open("wb") as out:
+            shutil.copyfileobj(video.file, out)
+        return _run_proactive(
+            dest,
+            question,
+            target_fps=target_fps,
+            max_rounds=max_rounds,
+            max_seconds=max_seconds,
+            max_new_tokens=max_new_tokens,
+            start_sec=start_sec,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Proactive streaming failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+@app.post("/v1/proactive_path", response_model=ProactiveResponse)
+def proactive_path(body: ProactivePathRequest) -> ProactiveResponse:
+    try:
+        return _run_proactive(
+            body.video_path,
+            body.question,
+            target_fps=body.target_fps,
+            max_rounds=body.max_rounds,
+            max_seconds=body.max_seconds,
+            max_new_tokens=body.max_new_tokens,
+            start_sec=body.start_sec,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Proactive streaming failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

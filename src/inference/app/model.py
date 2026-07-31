@@ -471,5 +471,95 @@ class VideoChat3Engine:
             device=self._device,
         )
 
+    def _stream_infer(self, messages: list[dict], max_tokens: int = 128) -> str:
+        """Single-step image chat for the proactive StreamingSession."""
+        import torch
+        from .streaming import strip_end_tokens
+
+        assert self._model is not None and self._processor is not None
+        inputs = self._processor.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+        )
+        inputs = inputs.to(self._model.device)
+        if self._input_dtype is not None:
+            inputs = inputs.to(self._input_dtype)
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        try:
+            with torch.inference_mode():
+                generated_ids = self._model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    do_sample=False,
+                    temperature=1.0,
+                    top_p=1.0,
+                    top_k=0,
+                )
+        except torch.cuda.OutOfMemoryError as exc:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            raise RuntimeError(
+                "GPU out of memory during proactive streaming. "
+                "Lower LECTUREBUDDY_PROACTIVE_MAX_ROUNDS / PROACTIVE_FPS / PROACTIVE_MAX_SECONDS."
+            ) from exc
+
+        trimmed = [
+            output_ids[len(input_ids) :]
+            for input_ids, output_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        text = self._processor.batch_decode(
+            trimmed,
+            skip_special_tokens=False,
+            clean_up_tokenization_spaces=False,
+        )[0]
+        return strip_end_tokens(text)
+
+    def proactive(
+        self,
+        video_path: str | Path,
+        question: str,
+        *,
+        target_fps: float | None = None,
+        max_rounds: int | None = None,
+        max_seconds: float | None = None,
+        max_new_tokens: int | None = None,
+        start_sec: float | None = None,
+    ):
+        """Run Silence/Standby/Response loop with adaptive frame resolution."""
+        from .streaming import mock_proactive, run_proactive_loop
+
+        path = Path(video_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"Video not found: {path}")
+        if not question.strip():
+            raise ValueError("Question must be non-empty.")
+
+        offset = max(0.0, float(start_sec or 0.0))
+
+        if settings.mock:
+            return mock_proactive(question.strip(), start_sec=offset)
+
+        if not self.ready:
+            self.load()
+
+        return run_proactive_loop(
+            video_path=path,
+            question=question.strip(),
+            infer_fn=self._stream_infer,
+            target_fps=target_fps if target_fps is not None else settings.proactive_fps,
+            max_rounds=max_rounds if max_rounds is not None else settings.proactive_max_rounds,
+            max_seconds=(
+                max_seconds if max_seconds is not None else settings.proactive_max_seconds
+            ),
+            max_new_tokens=max_new_tokens or min(settings.max_new_tokens, 128),
+            start_sec=offset,
+        )
+
 
 engine = VideoChat3Engine()

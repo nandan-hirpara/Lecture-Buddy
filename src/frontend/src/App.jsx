@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { askVideo, fetchHealth, groundVideo } from './api.js'
+import { askVideo, fetchHealth, groundVideo, proactiveVideo } from './api.js'
 import { TASKS, mockReply } from './mock/responses.js'
 import './App.css'
 
@@ -16,6 +16,18 @@ function formatClock(seconds) {
     return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
   return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/** Parse "3:42", "1:02:30", or plain seconds into a number. */
+function parseClock(text) {
+  const raw = String(text || '').trim()
+  if (!raw) return 0
+  if (/^\d+(\.\d+)?$/.test(raw)) return Math.max(0, Number(raw))
+  const parts = raw.split(':').map((p) => Number(p))
+  if (parts.some((n) => Number.isNaN(n))) return 0
+  if (parts.length === 2) return Math.max(0, parts[0] * 60 + parts[1])
+  if (parts.length === 3) return Math.max(0, parts[0] * 3600 + parts[1] * 60 + parts[2])
+  return 0
 }
 
 function describeApi(health) {
@@ -49,6 +61,29 @@ function mockGrounding(query) {
   }
 }
 
+function mockProactive(question, startSec = 0) {
+  const offset = Math.max(0, Number(startSec) || 0)
+  return {
+    question,
+    start_sec: offset,
+    rounds: [
+      { round_idx: 0, time_start: offset + 0, time_end: offset + 2, state: 'silence', high_res: false },
+      { round_idx: 1, time_start: offset + 2, time_end: offset + 4, state: 'silence', high_res: false },
+      { round_idx: 2, time_start: offset + 4, time_end: offset + 6, state: 'standby', high_res: false },
+      { round_idx: 3, time_start: offset + 6, time_end: offset + 8, state: 'response', high_res: true },
+    ],
+    final_answer: `[mock] Enough evidence to answer: ${question}`,
+    display: `**Proactive stream** for “${question}”${
+      offset > 0 ? ` _(from ${offset}s)_` : ''
+    }\n\n- **${offset}s–${offset + 2}s** [SILENCE]: </Silence>\n- **${offset + 2}s–${
+      offset + 4
+    }s** [SILENCE]: </Silence>\n- **${offset + 4}s–${offset + 6}s** [STANDBY]: </Standby>\n- **${
+      offset + 6
+    }s–${offset + 8}s** [RESPONSE] HIGH-RES: [mock] Enough evidence to answer: ${question}\n\n**Final answer:** [mock] Enough evidence to answer: ${question}`,
+    mock: true,
+  }
+}
+
 export default function App() {
   const fileInputId = useId()
   const chatEndRef = useRef(null)
@@ -68,6 +103,9 @@ export default function App() {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [apiHealth, setApiHealth] = useState(null)
+  const [liveStartSec, setLiveStartSec] = useState(0)
+  const [liveStartInput, setLiveStartInput] = useState('0:00')
+  const [followPlayhead, setFollowPlayhead] = useState(true)
 
   const api = describeApi(apiHealth)
 
@@ -110,6 +148,9 @@ export default function App() {
     const url = URL.createObjectURL(file)
     setVideoFile(file)
     setVideoUrl(url)
+    setLiveStartSec(0)
+    setLiveStartInput('0:00')
+    setFollowPlayhead(true)
     setMessages((prev) => [
       ...prev,
       {
@@ -119,7 +160,7 @@ export default function App() {
           api.ready
             ? 'Questions will go to the inference API.'
             : 'API offline — answers will use local mock until the server is up.'
-        }`,
+        } Scrub the player or set “Live from” before clicking Live.`,
         at: new Date(),
       },
     ])
@@ -129,12 +170,37 @@ export default function App() {
     if (videoUrl) URL.revokeObjectURL(videoUrl)
     setVideoFile(null)
     setVideoUrl(null)
+    setLiveStartSec(0)
+    setLiveStartInput('0:00')
+    setFollowPlayhead(true)
     if (videoRef.current) videoRef.current.removeAttribute('src')
   }
 
-  async function resolveReply(userText, taskId) {
+  function syncLiveStartFromPlayer() {
+    const el = videoRef.current
+    if (!el) return
+    const t = Math.max(0, el.currentTime || 0)
+    setLiveStartSec(t)
+    setLiveStartInput(formatClock(t))
+  }
+
+  function onLiveStartCommit(raw) {
+    const t = parseClock(raw)
+    setFollowPlayhead(false)
+    setLiveStartSec(t)
+    setLiveStartInput(formatClock(t))
+    const el = videoRef.current
+    if (el && Number.isFinite(el.duration) && el.duration > 0) {
+      el.currentTime = Math.min(t, el.duration)
+    } else if (el) {
+      el.currentTime = t
+    }
+  }
+
+  async function resolveReply(userText, taskId, opts = {}) {
+    const startSec = Math.max(0, Number(opts.startSec) || 0)
     if (!videoFile) {
-      return { text: mockReply(taskId, null, userText), segments: null }
+      return { text: mockReply(taskId, null, userText), segments: null, rounds: null }
     }
 
     if (!api.ready) {
@@ -145,6 +211,17 @@ export default function App() {
             ground.display +
             '\n\n_(API offline — mock grounding. Start src/inference uvicorn on :8000.)_',
           segments: ground.segments,
+          rounds: null,
+        }
+      }
+      if (taskId === 'live') {
+        const live = mockProactive(userText, startSec)
+        return {
+          text:
+            live.display +
+            '\n\n_(API offline — mock proactive. Start src/inference uvicorn on :8000.)_',
+          segments: null,
+          rounds: live.rounds,
         }
       }
       return {
@@ -152,6 +229,7 @@ export default function App() {
           mockReply(taskId, videoFile.name, userText) +
           '\n\n_(API offline — mock fallback. Start src/inference uvicorn on :8000.)_',
         segments: null,
+        rounds: null,
       }
     }
 
@@ -165,6 +243,20 @@ export default function App() {
         return {
           text: `${result.display}${badge}`,
           segments: result.segments || [],
+          rounds: null,
+        }
+      }
+
+      if (taskId === 'live') {
+        const result = await proactiveVideo(videoFile, userText, {
+          signal: controller.signal,
+          startSec,
+        })
+        const badge = result.mock ? ' [api-mock]' : ''
+        return {
+          text: `${result.display}${badge}`,
+          segments: null,
+          rounds: result.rounds || [],
         }
       }
 
@@ -173,7 +265,7 @@ export default function App() {
         task: taskId && taskId !== 'chat' ? taskId : undefined,
       })
       const badge = result.mock ? ' [api-mock]' : ''
-      return { text: `${result.answer}${badge}`, segments: null }
+      return { text: `${result.answer}${badge}`, segments: null, rounds: null }
     } finally {
       clearTimeout(timeout)
       if (abortRef.current === controller) abortRef.current = null
@@ -185,10 +277,13 @@ export default function App() {
     if (!el) return
     const t = Math.max(0, Number(seconds) || 0)
     el.currentTime = t
+    setFollowPlayhead(true)
+    setLiveStartSec(t)
+    setLiveStartInput(formatClock(t))
     void el.play?.()
   }
 
-  async function pushExchange(userText, taskId = 'chat') {
+  async function pushExchange(userText, taskId = 'chat', opts = {}) {
     if (busy) return
     if (!videoFile) {
       setMessages((prev) => [
@@ -203,17 +298,23 @@ export default function App() {
       return
     }
 
+    const startSec = Math.max(0, Number(opts.startSec) || 0)
+    const displayText =
+      taskId === 'live' && startSec > 0
+        ? `Live from ${formatClock(startSec)}: ${userText}`
+        : userText
+
     const userMsg = {
       id: `u-${Date.now()}`,
       role: 'user',
-      text: userText,
+      text: displayText,
       at: new Date(),
     }
     setMessages((prev) => [...prev, userMsg])
     setBusy(true)
 
     try {
-      const reply = await resolveReply(userText, taskId)
+      const reply = await resolveReply(userText, taskId, { startSec })
       setMessages((prev) => [
         ...prev,
         {
@@ -221,6 +322,7 @@ export default function App() {
           role: 'assistant',
           text: reply.text,
           segments: reply.segments,
+          rounds: reply.rounds,
           at: new Date(),
         },
       ])
@@ -244,10 +346,21 @@ export default function App() {
   }
 
   function onTask(task) {
-    if (task.id === 'find') {
+    if (task.id === 'find' || task.id === 'live') {
       const topic = draft.trim() || task.chatText
       if (draft.trim()) setDraft('')
-      void pushExchange(topic, 'find')
+      if (task.id === 'live') {
+        const startSec = followPlayhead
+          ? Math.max(0, videoRef.current?.currentTime || liveStartSec || 0)
+          : liveStartSec
+        if (followPlayhead) {
+          setLiveStartSec(startSec)
+          setLiveStartInput(formatClock(startSec))
+        }
+        void pushExchange(topic, 'live', { startSec })
+        return
+      }
+      void pushExchange(topic, task.id)
       return
     }
     void pushExchange(task.chatText, task.id)
@@ -292,7 +405,56 @@ export default function App() {
                 src={videoUrl}
                 controls
                 playsInline
+                onTimeUpdate={() => {
+                  if (!followPlayhead) return
+                  syncLiveStartFromPlayer()
+                }}
+                onSeeked={() => {
+                  if (!followPlayhead) return
+                  syncLiveStartFromPlayer()
+                }}
               />
+              <div className="live-from-row">
+                <label className="live-from-label" htmlFor="live-from">
+                  Live from
+                </label>
+                <input
+                  id="live-from"
+                  className="live-from-input"
+                  type="text"
+                  value={liveStartInput}
+                  disabled={busy}
+                  placeholder="m:ss"
+                  title="Start timestamp for Live (m:ss or seconds)"
+                  onChange={(e) => {
+                    setFollowPlayhead(false)
+                    setLiveStartInput(e.target.value)
+                  }}
+                  onBlur={(e) => onLiveStartCommit(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      onLiveStartCommit(e.currentTarget.value)
+                      e.currentTarget.blur()
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  disabled={busy}
+                  onClick={() => {
+                    setFollowPlayhead(true)
+                    syncLiveStartFromPlayer()
+                  }}
+                  title="Lock Live start to the video playhead"
+                >
+                  Use playhead
+                </button>
+                <span className="live-from-hint">
+                  {followPlayhead ? 'follows scrubber' : 'fixed'} · {formatClock(liveStartSec)}
+                </span>
+              </div>
               <button type="button" className="ghost-btn" onClick={clearVideo}>
                 Remove video
               </button>
@@ -358,6 +520,24 @@ export default function App() {
                     ))}
                   </div>
                 ) : null}
+                {msg.rounds?.length ? (
+                  <div className="round-row" aria-label="Proactive rounds">
+                    {msg.rounds.map((round, idx) => (
+                      <button
+                        key={`${msg.id}-round-${idx}`}
+                        type="button"
+                        className="round-chip"
+                        data-state={round.state}
+                        data-high-res={round.high_res ? '1' : '0'}
+                        onClick={() => seekTo(round.time_start)}
+                        title={`${round.state}${round.high_res ? ' · high-res' : ''}`}
+                      >
+                        {formatClock(round.time_start)} {String(round.state || '').toUpperCase()}
+                        {round.high_res ? ' · HR' : ''}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </article>
             ))}
             {busy ? (
@@ -377,7 +557,7 @@ export default function App() {
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Ask anything… or type a topic then click Find topic"
+              placeholder="Ask… Find topic, or scrub + Live from a timestamp"
               disabled={busy}
               autoComplete="off"
             />

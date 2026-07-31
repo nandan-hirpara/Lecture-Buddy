@@ -1,4 +1,4 @@
-﻿# LectureBuddy — Implementation Checklist
+# LectureBuddy — Implementation Checklist
 
 Ordered **easiest → hardest**. Do **one task at a time**.
 
@@ -28,7 +28,7 @@ Legend: `[P]` = paper/algorithm component · `[L]` = LectureBuddy product extens
 8. [x] `[L]` Connect React upload + chat to the inference API
 9. [x] `[L]` Implement lecture prompts on top of video QA (notes, flashcards, quizzes, formulas)
 10. [x] `[P]` Temporal grounding endpoint ("Find where recursion was introduced" → timestamps)
-11. [ ] `[P]` Streaming / proactive loop (Silence / Standby / Response + adaptive resolution) via official proactive demo pattern
+11. [x] `[P]` Streaming / proactive loop (Silence / Standby / Response + adaptive resolution) via official proactive demo pattern
 
 ---
 
@@ -53,7 +53,7 @@ Legend: `[P]` = paper/algorithm component · `[L]` = LectureBuddy product extens
 
 ## Next recommended task
 
-**Task 11:** Streaming / proactive loop (Silence / Standby / Response + adaptive resolution) via official proactive demo pattern.
+**Task 12:** Chapter segmentation UX (scene/time chapters + per-chapter summary).
 
 ---
 

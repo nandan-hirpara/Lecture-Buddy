@@ -36,6 +36,11 @@ const TASKS = [
     label: 'Find topic',
     chatText: 'the main concept',
   },
+  {
+    id: 'live',
+    label: 'Live',
+    chatText: 'Watch for the key concept and answer when ready.',
+  },
 ]
 
 function mockReply(taskId, videoName, userText) {
@@ -91,6 +96,14 @@ Query: “${userText || 'main concept'}”
 → **Approx. 12:40–14:05** (placeholder)
 
 VideoChat3’s temporal grounding will return real timestamps in a later task.`,
+    live: `**Mock proactive stream** for “${userText || 'key concept'}”
+
+- **0s–2s** [SILENCE]: </Silence>
+- **2s–4s** [SILENCE]: </Silence>
+- **4s–6s** [STANDBY]: </Standby>
+- **6s–8s** [RESPONSE] HIGH-RES: Enough evidence to answer.
+
+_(Stub — real Silence/Standby/Response comes from /v1/proactive.)_`,
     chat: `Mock reply to: “${userText}”
 
 I can discuss the lecture once a video is attached and the inference service is live. For now this is a UI stub.`,

@@ -178,6 +178,35 @@
   object-fit: contain;
 }
 
+.live-from-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+
+.live-from-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.live-from-input {
+  width: 5.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.5rem;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.live-from-hint {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
 .ghost-btn {
   align-self: flex-start;
   border: 1px solid var(--line);
@@ -303,6 +332,42 @@
 
 .seek-btn:hover {
   background: rgba(15, 118, 110, 0.16);
+}
+
+.round-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.round-chip {
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  padding: 0.28rem 0.55rem;
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.round-chip[data-state='standby'] {
+  background: rgba(180, 120, 20, 0.12);
+}
+
+.round-chip[data-state='response'] {
+  background: rgba(15, 118, 110, 0.14);
+}
+
+.round-chip[data-high-res='1'] {
+  border-color: rgba(15, 118, 110, 0.55);
+  font-weight: 600;
+}
+
+.round-chip:hover {
+  background: rgba(15, 118, 110, 0.12);
 }
 
 .thinking {

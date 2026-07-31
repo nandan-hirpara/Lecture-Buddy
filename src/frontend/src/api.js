@@ -94,3 +94,56 @@ export async function groundVideo(videoFile, query, opts = {}) {
 
   return payload
 }
+
+/**
+ * Run proactive Silence/Standby/Response streaming over an uploaded lecture.
+ * @param {File} videoFile
+ * @param {string} question
+ * @param {{ signal?: AbortSignal, maxNewTokens?: number, targetFps?: number, maxRounds?: number, maxSeconds?: number, startSec?: number }} [opts]
+ */
+export async function proactiveVideo(videoFile, question, opts = {}) {
+  const form = new FormData()
+  form.append('question', question)
+  form.append('video', videoFile, videoFile.name)
+  if (opts.targetFps != null) {
+    form.append('target_fps', String(opts.targetFps))
+  }
+  if (opts.maxRounds != null) {
+    form.append('max_rounds', String(opts.maxRounds))
+  }
+  if (opts.maxSeconds != null) {
+    form.append('max_seconds', String(opts.maxSeconds))
+  }
+  if (opts.maxNewTokens != null) {
+    form.append('max_new_tokens', String(opts.maxNewTokens))
+  }
+  if (opts.startSec != null && Number(opts.startSec) > 0) {
+    form.append('start_sec', String(opts.startSec))
+  }
+
+  const res = await fetch(`${API_BASE}/v1/proactive`, {
+    method: 'POST',
+    body: form,
+    signal: opts.signal,
+  })
+
+  let payload = null
+  try {
+    payload = await res.json()
+  } catch {
+    payload = null
+  }
+
+  if (!res.ok) {
+    const detail = payload?.detail
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+          : `Proactive request failed (${res.status})`
+    throw new Error(message)
+  }
+
+  return payload
+}

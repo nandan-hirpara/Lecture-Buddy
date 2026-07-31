@@ -57,3 +57,36 @@ class GroundResponse(BaseModel):
     mock: bool
     device: str | None = None
     video_name: str | None = None
+
+
+class ProactiveRoundModel(BaseModel):
+    round_idx: int
+    time_start: float
+    time_end: float
+    state: str
+    high_res: bool
+    max_pixels: int
+    raw: str
+    answer_text: str = ""
+
+
+class ProactivePathRequest(BaseModel):
+    video_path: str
+    question: str = Field(..., min_length=1)
+    target_fps: float | None = Field(default=None, gt=0)
+    max_rounds: int | None = Field(default=None, ge=1, le=64)
+    max_seconds: float | None = Field(default=None, gt=0)
+    max_new_tokens: int | None = Field(default=None, ge=1, le=1024)
+    start_sec: float | None = Field(default=None, ge=0)
+
+
+class ProactiveResponse(BaseModel):
+    question: str
+    rounds: list[ProactiveRoundModel]
+    final_answer: str | None = None
+    display: str
+    model_id: str
+    mock: bool
+    device: str | None = None
+    video_name: str | None = None
+    start_sec: float = 0.0

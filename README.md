@@ -1,4 +1,4 @@
-﻿# LectureBuddy
+# LectureBuddy
 
 A lecture companion built on top of **VideoChat3** ([paper](https://arxiv.org/abs/2607.14935), [GitHub](https://github.com/MCG-NJU/VideoChat3), [HF model](https://huggingface.co/MCG-NJU/VideoChat3-4B)).
 
@@ -11,6 +11,7 @@ Upload a lecture video, then ask:
 - Summarize each chapter
 - List important formulas
 - Find where a concept was introduced (temporal grounding)
+- Live proactive watch (Silence / Standby / Response)
 
 ## Quick start
 
@@ -45,6 +46,8 @@ Real model (your machine has an RTX 3060 6GB — use 4-bit):
 pip install bitsandbytes
 $env:LECTUREBUDDY_MOCK="0"
 $env:LECTUREBUDDY_LOAD_MODE="4bit"
+$env:LECTUREBUDDY_MAX_FRAMES="8" 
+$env:LECTUREBUDDY_VIDEO_FPS="0.5" 
 # Optional if you still hit CUDA OOM on long/high-res lectures:
 # $env:LECTUREBUDDY_MAX_FRAMES="4"
 # $env:LECTUREBUDDY_VIDEO_FPS="0.25"
@@ -59,6 +62,8 @@ Details: `src/inference/README.md`
 | `GET /health` | Ready / mock / device |
 | `POST /v1/ask` | Multipart video + question |
 | `POST /v1/ask_path` | Local path + question (JSON) |
+| `POST /v1/ground` | Temporal grounding → timestamps |
+| `POST /v1/proactive` | Proactive Silence/Standby/Response stream |
 
 ## Project layout
 
@@ -102,7 +107,8 @@ Full inventory: `notes/summary.md`.
 - [x] Wire React ↔ inference API
 - [x] Lecture study prompts (notes / flashcards / quiz / formulas / …)
 - [x] Temporal grounding endpoint (`/v1/ground` → timestamps + seek UI)
-- [ ] Streaming / proactive loop (next)
+- [x] Streaming / proactive loop (`/v1/proactive` + Live button)
+- [ ] Chapter segmentation UX (next)
 
 ## References
 
