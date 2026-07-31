@@ -65,6 +65,8 @@ Details: `src/inference/README.md`
 | `POST /v1/ground` | Temporal grounding → timestamps |
 | `POST /v1/proactive` | Proactive Silence/Standby/Response stream |
 | `POST /v1/chapters` | Timed chapter outline + summaries |
+| `POST /v1/flashcards` | Structured flashcards (flip deck in UI) |
+| `POST /v1/quiz` | Structured quiz + `/v1/quiz/grade` |
 
 ## Project layout
 
@@ -110,7 +112,8 @@ Full inventory: `notes/summary.md`.
 - [x] Temporal grounding endpoint (`/v1/ground` → timestamps + seek UI)
 - [x] Streaming / proactive loop (`/v1/proactive` + Live button)
 - [x] Chapter segmentation UX (`/v1/chapters` + outline rail)
-- [ ] Structured study outputs (next)
+- [x] Structured flashcards + quiz (`/v1/flashcards`, `/v1/quiz`, flip cards + grading)
+- [ ] Persist sessions under `data/` (next)
 
 ## References
 

@@ -186,3 +186,64 @@ export async function chaptersVideo(videoFile, opts = {}) {
 
   return payload
 }
+
+async function readJsonResponse(res, fallbackLabel) {
+  let payload = null
+  try {
+    payload = await res.json()
+  } catch {
+    payload = null
+  }
+  if (!res.ok) {
+    const detail = payload?.detail
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+          : `${fallbackLabel} failed (${res.status})`
+    throw new Error(message)
+  }
+  return payload
+}
+
+/** Structured flashcards from a lecture video. */
+export async function flashcardsVideo(videoFile, opts = {}) {
+  const form = new FormData()
+  form.append('video', videoFile, videoFile.name)
+  if (opts.maxNewTokens != null) {
+    form.append('max_new_tokens', String(opts.maxNewTokens))
+  }
+  const res = await fetch(`${API_BASE}/v1/flashcards`, {
+    method: 'POST',
+    body: form,
+    signal: opts.signal,
+  })
+  return readJsonResponse(res, 'Flashcards request')
+}
+
+/** Structured quiz from a lecture video. */
+export async function quizVideo(videoFile, opts = {}) {
+  const form = new FormData()
+  form.append('video', videoFile, videoFile.name)
+  if (opts.maxNewTokens != null) {
+    form.append('max_new_tokens', String(opts.maxNewTokens))
+  }
+  const res = await fetch(`${API_BASE}/v1/quiz`, {
+    method: 'POST',
+    body: form,
+    signal: opts.signal,
+  })
+  return readJsonResponse(res, 'Quiz request')
+}
+
+/** Grade quiz responses against structured questions. */
+export async function gradeQuiz(questions, responses, opts = {}) {
+  const res = await fetch(`${API_BASE}/v1/quiz/grade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questions, responses }),
+    signal: opts.signal,
+  })
+  return readJsonResponse(res, 'Quiz grade')
+}

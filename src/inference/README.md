@@ -55,6 +55,11 @@ First real start downloads the HF weights (several GB).
 | POST | `/v1/proactive_path` | JSON proactive: `{ "video_path", "question", "target_fps?", "max_rounds?", "max_seconds?", "start_sec?" }` |
 | POST | `/v1/chapters` | Multipart chapter segmentation: `video` → timed chapters + summaries |
 | POST | `/v1/chapters_path` | JSON chapters: `{ "video_path", "max_new_tokens?" }` |
+| POST | `/v1/flashcards` | Multipart structured flashcards → flip deck |
+| POST | `/v1/flashcards_path` | JSON flashcards |
+| POST | `/v1/quiz` | Multipart structured quiz |
+| POST | `/v1/quiz_path` | JSON quiz |
+| POST | `/v1/quiz/grade` | Grade `{ questions, responses }` → score |
 
 Optional `task` values: `explain`, `notes`, `flashcards`, `quiz`, `chapters`, `formulas`, `find`.  
 These expand into lecture study prompts in `app/prompts.py` before VideoChat3 runs. Free-form chat omits `task`.
@@ -64,6 +69,8 @@ These expand into lecture study prompts in `app/prompts.py` before VideoChat3 ru
 `/v1/proactive` runs the official Silence / Standby / Response loop (`app/streaming.py`): low-res windows by default, high-res (448²) after `</Standby>`, stop on `</Response>`. Caps for 6GB: `LECTUREBUDDY_PROACTIVE_FPS`, `LECTUREBUDDY_PROACTIVE_MAX_ROUNDS`, `LECTUREBUDDY_PROACTIVE_MAX_SECONDS`. Optional `start_sec` skips the intro so Live can begin mid-lecture.
 
 `/v1/chapters` asks VideoChat3 for a JSON chapter outline (`app/chapters.py`), parses timestamps + summaries, and powers the under-player chapter rail in the UI.
+
+`/v1/flashcards` and `/v1/quiz` return structured JSON (`app/study.py`) for a flip-card deck and an interactive graded quiz (`POST /v1/quiz/grade`).
 
 ### Example
 

@@ -114,3 +114,74 @@ class ChaptersResponse(BaseModel):
     mock: bool
     device: str | None = None
     video_name: str | None = None
+
+
+class FlashcardModel(BaseModel):
+    id: int = Field(..., ge=1)
+    front: str
+    back: str
+    hint: str = ""
+
+
+class FlashcardsPathRequest(BaseModel):
+    video_path: str
+    max_new_tokens: int | None = Field(default=None, ge=1, le=4096)
+
+
+class FlashcardsResponse(BaseModel):
+    topic: str | None = None
+    cards: list[FlashcardModel]
+    answer: str
+    display: str
+    model_id: str
+    mock: bool
+    device: str | None = None
+    video_name: str | None = None
+
+
+class QuizQuestionModel(BaseModel):
+    id: int = Field(..., ge=1)
+    type: str = Field(..., description="mcq | short")
+    prompt: str
+    answer: str
+    explanation: str = ""
+    choices: dict[str, str] = Field(default_factory=dict)
+
+
+class QuizPathRequest(BaseModel):
+    video_path: str
+    max_new_tokens: int | None = Field(default=None, ge=1, le=4096)
+
+
+class QuizResponse(BaseModel):
+    title: str | None = None
+    questions: list[QuizQuestionModel]
+    answer: str
+    display: str
+    model_id: str
+    mock: bool
+    device: str | None = None
+    video_name: str | None = None
+
+
+class QuizGradeRequest(BaseModel):
+    questions: list[QuizQuestionModel]
+    responses: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of question id (string) → user answer",
+    )
+
+
+class QuizGradeResultItem(BaseModel):
+    id: int
+    correct: bool
+    user_answer: str
+    expected: str
+    explanation: str = ""
+
+
+class QuizGradeResponse(BaseModel):
+    score: int
+    total: int
+    percent: float
+    results: list[QuizGradeResultItem]

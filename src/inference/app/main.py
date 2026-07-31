@@ -32,6 +32,9 @@ from .schemas import (
     ChapterModel,
     ChaptersPathRequest,
     ChaptersResponse,
+    FlashcardModel,
+    FlashcardsPathRequest,
+    FlashcardsResponse,
     GroundPathRequest,
     GroundResponse,
     GroundSegmentModel,
@@ -39,6 +42,24 @@ from .schemas import (
     ProactivePathRequest,
     ProactiveResponse,
     ProactiveRoundModel,
+    QuizGradeRequest,
+    QuizGradeResponse,
+    QuizGradeResultItem,
+    QuizPathRequest,
+    QuizQuestionModel,
+    QuizResponse,
+)
+from .study import (
+    QuizQuestion,
+    build_flashcards_prompt,
+    build_quiz_prompt,
+    format_flashcards_markdown,
+    format_quiz_markdown,
+    grade_quiz,
+    mock_flashcards,
+    mock_quiz,
+    parse_flashcards_answer,
+    parse_quiz_answer,
 )
 
 logging.basicConfig(
@@ -355,6 +376,172 @@ def chapters_path(body: ChaptersPathRequest) -> ChaptersResponse:
     except Exception as exc:  # noqa: BLE001
         logger.exception("Chapter segmentation failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _run_flashcards(video_path: str | Path, max_new_tokens: int | None) -> FlashcardsResponse:
+    video_name = Path(video_path).name
+    if settings.mock:
+        topic, cards, answer = mock_flashcards(video_name)
+        return FlashcardsResponse(
+            topic=topic,
+            cards=[FlashcardModel(**c.as_dict()) for c in cards],
+            answer=answer,
+            display=format_flashcards_markdown(topic, cards),
+            model_id=settings.model_id,
+            mock=True,
+            device="mock",
+            video_name=video_name,
+        )
+
+    tokens = max_new_tokens or max(settings.max_new_tokens, 512)
+    result = engine.ask(
+        video_path,
+        build_flashcards_prompt(),
+        max_new_tokens=tokens,
+    )
+    topic, cards = parse_flashcards_answer(result.answer)
+    return FlashcardsResponse(
+        topic=topic,
+        cards=[FlashcardModel(**c.as_dict()) for c in cards],
+        answer=result.answer,
+        display=format_flashcards_markdown(topic, cards),
+        model_id=result.model_id,
+        mock=result.mock,
+        device=result.device,
+        video_name=video_name,
+    )
+
+
+@app.post("/v1/flashcards", response_model=FlashcardsResponse)
+async def flashcards_upload(
+    video: UploadFile = File(...),
+    max_new_tokens: int | None = Form(default=None),
+) -> FlashcardsResponse:
+    suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
+    dest = settings.upload_dir / f"{uuid.uuid4().hex}{suffix}"
+    try:
+        with dest.open("wb") as out:
+            shutil.copyfileobj(video.file, out)
+        return _run_flashcards(dest, max_new_tokens)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Flashcards failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+@app.post("/v1/flashcards_path", response_model=FlashcardsResponse)
+def flashcards_path(body: FlashcardsPathRequest) -> FlashcardsResponse:
+    try:
+        return _run_flashcards(body.video_path, body.max_new_tokens)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Flashcards failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _run_quiz(video_path: str | Path, max_new_tokens: int | None) -> QuizResponse:
+    video_name = Path(video_path).name
+    if settings.mock:
+        title, questions, answer = mock_quiz(video_name)
+        return QuizResponse(
+            title=title,
+            questions=[QuizQuestionModel(**q.as_dict()) for q in questions],
+            answer=answer,
+            display=format_quiz_markdown(title, questions),
+            model_id=settings.model_id,
+            mock=True,
+            device="mock",
+            video_name=video_name,
+        )
+
+    tokens = max_new_tokens or max(settings.max_new_tokens, 640)
+    result = engine.ask(
+        video_path,
+        build_quiz_prompt(),
+        max_new_tokens=tokens,
+    )
+    title, questions = parse_quiz_answer(result.answer)
+    return QuizResponse(
+        title=title,
+        questions=[QuizQuestionModel(**q.as_dict()) for q in questions],
+        answer=result.answer,
+        display=format_quiz_markdown(title, questions),
+        model_id=result.model_id,
+        mock=result.mock,
+        device=result.device,
+        video_name=video_name,
+    )
+
+
+@app.post("/v1/quiz", response_model=QuizResponse)
+async def quiz_upload(
+    video: UploadFile = File(...),
+    max_new_tokens: int | None = Form(default=None),
+) -> QuizResponse:
+    suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
+    dest = settings.upload_dir / f"{uuid.uuid4().hex}{suffix}"
+    try:
+        with dest.open("wb") as out:
+            shutil.copyfileobj(video.file, out)
+        return _run_quiz(dest, max_new_tokens)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Quiz failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+@app.post("/v1/quiz_path", response_model=QuizResponse)
+def quiz_path(body: QuizPathRequest) -> QuizResponse:
+    try:
+        return _run_quiz(body.video_path, body.max_new_tokens)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Quiz failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/quiz/grade", response_model=QuizGradeResponse)
+def quiz_grade(body: QuizGradeRequest) -> QuizGradeResponse:
+    questions = [
+        QuizQuestion(
+            id=q.id,
+            type="mcq" if q.type == "mcq" else "short",  # type: ignore[arg-type]
+            prompt=q.prompt,
+            answer=q.answer,
+            explanation=q.explanation,
+            choices=dict(q.choices or {}),
+        )
+        for q in body.questions
+    ]
+    graded = grade_quiz(questions, body.responses)
+    return QuizGradeResponse(
+        score=graded["score"],
+        total=graded["total"],
+        percent=graded["percent"],
+        results=[QuizGradeResultItem(**item) for item in graded["results"]],
+    )
 
 
 def _run_proactive(

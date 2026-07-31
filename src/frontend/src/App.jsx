@@ -1,5 +1,15 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { askVideo, chaptersVideo, fetchHealth, groundVideo, proactiveVideo } from './api.js'
+import {
+  askVideo,
+  chaptersVideo,
+  fetchHealth,
+  flashcardsVideo,
+  groundVideo,
+  proactiveVideo,
+  quizVideo,
+} from './api.js'
+import FlashcardDeck from './FlashcardDeck.jsx'
+import QuizPanel from './QuizPanel.jsx'
 import { TASKS, mockReply } from './mock/responses.js'
 import './App.css'
 
@@ -132,6 +142,73 @@ function mockChapters(videoName) {
           `${ch.index}. **${formatClock(ch.start_sec)}–${formatClock(ch.end_sec)}** — ${ch.title}\n   ${ch.summary}`,
       )
       .join('\n')}`,
+    mock: true,
+  }
+}
+
+function mockFlashcards(videoName) {
+  const topic = `${(videoName || 'lecture').replace(/\.[^.]+$/, '')} flashcards`
+  const cards = [
+    { id: 1, front: 'What problem does this lecture address?', back: 'The core learning goal introduced at the start.' },
+    { id: 2, front: 'Key term from the opening', back: 'The main concept defined early in the talk.' },
+    { id: 3, front: 'Why does the method matter?', back: 'It improves on the baseline approach discussed.' },
+    { id: 4, front: 'Critical intermediate step', back: 'The hinge step before the worked example.' },
+    { id: 5, front: 'When does the approach fail?', back: 'Edge cases or assumptions called out by the speaker.' },
+    { id: 6, front: 'One takeaway to remember', back: 'The closing summary point to review later.' },
+  ]
+  return {
+    topic,
+    cards,
+    display: `**${topic}**\n\n_${cards.length} cards — tap a card in the deck to flip._`,
+    mock: true,
+  }
+}
+
+function mockQuiz(videoName) {
+  const title = `${(videoName || 'lecture').replace(/\.[^.]+$/, '')} quiz`
+  const questions = [
+    {
+      id: 1,
+      type: 'mcq',
+      prompt: 'What is the main goal of this lecture?',
+      choices: { A: 'Trivia list', B: 'Explain the core method', C: 'Hardware setup', D: 'Grading policy' },
+      answer: 'B',
+      explanation: 'The opening frames the central problem.',
+    },
+    {
+      id: 2,
+      type: 'mcq',
+      prompt: 'Which step is most error-prone?',
+      choices: {
+        A: 'Title slide',
+        B: 'Credits',
+        C: 'Core derivation / algorithm step',
+        D: 'Outro music',
+      },
+      answer: 'C',
+      explanation: 'The speaker highlights a common pitfall mid-lecture.',
+    },
+    {
+      id: 3,
+      type: 'short',
+      prompt: 'Name one key term defined in the lecture.',
+      answer: 'main concept',
+      explanation: 'Any clearly defined lecture term is acceptable in mock mode.',
+      choices: {},
+    },
+    {
+      id: 4,
+      type: 'mcq',
+      prompt: 'True or false framing: the method always runs in linear time.',
+      choices: { A: 'True', B: 'False', C: 'Not discussed', D: 'Only on GPU' },
+      answer: 'B',
+      explanation: 'Complexity caveats are usually discussed near the end.',
+    },
+  ]
+  return {
+    title,
+    questions,
+    display: `**${title}**\n\n_${questions.length} questions — answer below, then Grade._`,
     mock: true,
   }
 }
@@ -296,6 +373,32 @@ export default function App() {
           chapterTitle: ch.title,
         }
       }
+      if (taskId === 'flashcards') {
+        const fc = mockFlashcards(videoFile.name)
+        return {
+          text:
+            fc.display +
+            '\n\n_(API offline — mock flashcards. Start src/inference uvicorn on :8000.)_',
+          segments: null,
+          rounds: null,
+          chapters: null,
+          cards: fc.cards,
+          cardsTopic: fc.topic,
+        }
+      }
+      if (taskId === 'quiz') {
+        const qz = mockQuiz(videoFile.name)
+        return {
+          text:
+            qz.display +
+            '\n\n_(API offline — mock quiz. Start src/inference uvicorn on :8000.)_',
+          segments: null,
+          rounds: null,
+          chapters: null,
+          questions: qz.questions,
+          quizTitle: qz.title,
+        }
+      }
       return {
         text:
           mockReply(taskId, videoFile.name, userText) +
@@ -344,6 +447,32 @@ export default function App() {
           rounds: null,
           chapters: result.chapters || [],
           chapterTitle: result.title,
+        }
+      }
+
+      if (taskId === 'flashcards') {
+        const result = await flashcardsVideo(videoFile, { signal: controller.signal })
+        const badge = result.mock ? ' [api-mock]' : ''
+        return {
+          text: `${result.display}${badge}`,
+          segments: null,
+          rounds: null,
+          chapters: null,
+          cards: result.cards || [],
+          cardsTopic: result.topic,
+        }
+      }
+
+      if (taskId === 'quiz') {
+        const result = await quizVideo(videoFile, { signal: controller.signal })
+        const badge = result.mock ? ' [api-mock]' : ''
+        return {
+          text: `${result.display}${badge}`,
+          segments: null,
+          rounds: null,
+          chapters: null,
+          questions: result.questions || [],
+          quizTitle: result.title,
         }
       }
 
@@ -418,6 +547,10 @@ export default function App() {
           segments: reply.segments,
           rounds: reply.rounds,
           chapters: reply.chapters,
+          cards: reply.cards,
+          cardsTopic: reply.cardsTopic,
+          questions: reply.questions,
+          quizTitle: reply.quizTitle,
           at: new Date(),
         },
       ])
@@ -683,6 +816,16 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+                ) : null}
+                {msg.cards?.length ? (
+                  <FlashcardDeck cards={msg.cards} topic={msg.cardsTopic} />
+                ) : null}
+                {msg.questions?.length ? (
+                  <QuizPanel
+                    questions={msg.questions}
+                    title={msg.quizTitle}
+                    messageId={msg.id}
+                  />
                 ) : null}
               </article>
             ))}
